@@ -1,23 +1,68 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { UserCircle, LogOut, Settings, Calendar, Mic2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  UserCircle,
+  LogOut,
+  Settings,
+  Calendar,
+  Mic2,
+  Mail,
+} from "lucide-react";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<{ user_type: string } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    } else {
+      setUserProfile(null);
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_type")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(data);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
+
+  const canManageEvents =
+    userProfile?.user_type === "organizer" || userProfile?.user_type === "both";
+
+  const canViewInvitations =
+    userProfile?.user_type === "speaker" || userProfile?.user_type === "both";
+
+  const canViewSpeakerEvents =
+    userProfile?.user_type === "speaker" || userProfile?.user_type === "both";
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -46,9 +91,36 @@ const Navbar = () => {
                     Speakers
                   </Button>
                 </Link>
+                {canViewInvitations && (
+                  <Link to="/invitations">
+                    <Button variant="ghost" size="sm">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Invitations
+                    </Button>
+                  </Link>
+                )}
+                {canViewSpeakerEvents && (
+                  <Link to="/speaker-events">
+                    <Button variant="ghost" size="sm">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      My Applications
+                    </Button>
+                  </Link>
+                )}
+                {canManageEvents && (
+                  <Link to="/my-events">
+                    <Button variant="ghost" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      My Events
+                    </Button>
+                  </Link>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
                           {user.email?.charAt(0).toUpperCase()}
