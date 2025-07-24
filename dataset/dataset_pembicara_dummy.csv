@@ -1,0 +1,21 @@
+id_pembicara,nama_pembicara,jabatan_pekerjaan,perusahaan,topik,rating_rata2,tarif_per_jam,frekuensi_pengisi_acara,lokasi,url_portofolio
+1,Andi Nugroho,Data Scientist,Gojek,"tech, ai, data science",4.8,750000,12,"Gading Serpong, Tangerang",https://portofolio.andi.tech
+2,Rina Marlina,AI Researcher,Telkom Indonesia,"ai, research, tech",4.7,800000,10,"Bandung, Jawa Barat",https://rina-ai.net
+3,Budi Hartono,Dokter Spesialis,RS Siloam,"med, health",4.6,900000,8,"Alam Sutera, Tangerang",https://budihealth.id
+4,Dewi Sartika,Product Manager,Tokopedia,"tech, product, management",4.5,850000,15,Jakarta Selatan,https://dewimanager.com
+5,Fahmi Ramadhan,Cybersecurity Expert,Bukalapak,"tech, security, data",4.9,950000,11,"Depok, Jawa Barat",https://fahmisec.id
+6,Lilis Suryani,UX Designer,Traveloka,"tech, design, uiux",4.4,700000,9,"BSD City, Tangerang",https://lilisux.my.id
+7,Yusuf Maulana,Fullstack Developer,Shopee,"tech, programming, web",4.8,880000,14,"Tebet, Jakarta Selatan",https://yusufdev.web.id
+8,Mega Putri,Data Analyst,OVO,"data, analytics, finance",4.6,770000,13,"Bekasi, Jawa Barat",https://megadata.id
+9,Rizky Hidayat,Health Consultant,Halodoc,"health, wellness, med",4.5,720000,7,"Gading Serpong, Tangerang",https://rizkyhealth.com
+10,Tania Rahma,Machine Learning Engineer,Bukit Vista,"ai, ml, tech",4.7,890000,10,Yogyakarta,https://tanialearn.ml
+11,Agus Wijaya,Robotics Engineer,BRIN,"robotics, ai, tech",4.8,920000,6,"Serpong, Tangerang Selatan",https://agusrobot.tech
+12,Sinta Nuraini,Biotech Specialist,Biofarma,"biotech, health, med",4.6,860000,5,"Bandung, Jawa Barat",https://sintabio.net
+13,Dani Setiawan,AI Ethics Advisor,Kominfo,"ai, ethics, policy",4.7,910000,4,Jakarta Pusat,https://danietics.id
+14,Nurul Azizah,Nutritionist,Klinik Sehat,"health, wellness, med",4.5,690000,6,"BSD City, Tangerang",https://nurulnutrition.com
+15,Indra Pratama,Software Engineer,Google Indonesia,"tech, programming, backend",4.9,1000000,8,"Kuningan, Jakarta Selatan",https://indra-code.io
+16,Maria Fransisca,Epidemiologist,WHO Indonesia,"med, health, research",4.7,980000,9,"Ciputat, Tangerang Selatan",https://maria-epi.org
+17,Reza Anugrah,Blockchain Developer,Indodax,"tech, blockchain, finance",4.6,970000,7,Jakarta Utara,https://rezablock.id
+18,Fitri Amelia,Public Health Officer,Kemenkes,"health, med, community",4.5,740000,10,"Bogor, Jawa Barat",https://fitrihealth.gov
+19,Aditya Kurniawan,Cloud Architect,AWS,"tech, cloud, devops",4.9,990000,12,Jakarta Barat,https://adityacloud.com
+20,Selvi Oktavia,AI Curriculum Developer,Ruangguru,"ai, education, tech",4.6,780000,11,Jakarta Timur,https://selvi-ai.edu
