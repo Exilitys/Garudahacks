@@ -85,6 +85,8 @@ interface Review {
   rating: number;
   comment?: string;
   created_at: string;
+  event_title?: string; // Added for booking feedback
+  source: "reviews" | "bookings"; // Added to track source
   reviewer: {
     full_name: string;
     avatar_url?: string;
@@ -188,7 +190,8 @@ const SpeakerDetail = () => {
     if (!id) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch reviews from the reviews table
+      const { data: reviewsData, error: reviewsError } = await supabase
         .from("reviews")
         .select(
           `
@@ -200,11 +203,72 @@ const SpeakerDetail = () => {
         `
         )
         .eq("reviewee_id", id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
-      if (error && error.code !== "PGRST116") throw error;
-      setReviews(data || []);
+      // Fetch feedback from bookings table (our actual event feedback)
+      const { data: bookingFeedback, error: bookingError } = await supabase
+        .from("bookings")
+        .select(
+          `
+          id,
+          reviewer_notes,
+          updated_at,
+          event:events(title),
+          event:events(organizer:profiles!events_organizer_id_fkey(full_name, avatar_url))
+        `
+        )
+        .eq("speaker_id", id)
+        .not("reviewer_notes", "is", null)
+        .like("reviewer_notes", "Rating:%")
+        .order("updated_at", { ascending: false });
+
+      const combinedReviews: Review[] = [];
+
+      // Add reviews from reviews table
+      if (reviewsData && !reviewsError) {
+        const formattedReviews = reviewsData.map((review) => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          created_at: review.created_at,
+          source: "reviews" as const,
+          reviewer: review.reviewer,
+        }));
+        combinedReviews.push(...formattedReviews);
+      }
+
+      // Add feedback from bookings table
+      if (bookingFeedback && !bookingError) {
+        const formattedBookingFeedback = bookingFeedback.map((booking) => {
+          // Extract rating and feedback from reviewer_notes
+          const ratingMatch = booking.reviewer_notes.match(
+            /Rating: (\d+)\/5 stars/
+          );
+          const feedbackMatch = booking.reviewer_notes.match(/Feedback: (.+)$/);
+
+          return {
+            id: `booking-${booking.id}`,
+            rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
+            comment: feedbackMatch ? feedbackMatch[1] : "No feedback provided",
+            created_at: booking.updated_at,
+            event_title: (booking.event as any)?.title || "Unknown Event",
+            source: "bookings" as const,
+            reviewer: (booking.event as any)?.organizer || {
+              full_name: "Event Organizer",
+              avatar_url: null,
+            },
+          };
+        });
+        combinedReviews.push(...formattedBookingFeedback);
+      }
+
+      // Sort all reviews by date (newest first)
+      combinedReviews.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setReviews(combinedReviews);
     } catch (error) {
       console.error("Error fetching reviews:", error);
     }
@@ -760,9 +824,9 @@ const SpeakerDetail = () => {
             {reviews.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Reviews</CardTitle>
+                  <CardTitle>Reviews & Feedback</CardTitle>
                   <CardDescription>
-                    What organizers say about this speaker
+                    What organizers say about this speaker's performance
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -786,7 +850,18 @@ const SpeakerDetail = () => {
                               <div className="flex items-center">
                                 {renderStars(review.rating)}
                               </div>
+                              {review.source === "bookings" && (
+                                <Badge variant="outline" className="text-xs">
+                                  Event Feedback
+                                </Badge>
+                              )}
                             </div>
+                            {review.event_title &&
+                              review.source === "bookings" && (
+                                <p className="text-xs text-blue-600 mb-1">
+                                  From event: {review.event_title}
+                                </p>
+                              )}
                             {review.comment && (
                               <p className="text-sm text-muted-foreground">
                                 {review.comment}

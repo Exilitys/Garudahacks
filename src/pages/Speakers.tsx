@@ -20,7 +20,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   MapPin,
   Star,
@@ -28,7 +27,7 @@ import {
   Search,
   Verified,
   Award,
-  ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 
 interface Speaker {
@@ -39,11 +38,7 @@ interface Speaker {
   verified: boolean;
   total_talks: number;
   average_rating: number;
-  occupation?: string;
-  company?: string;
-  primary_topic?: string;
-  portfolio_url?: string;
-  secondary_location?: string;
+  total_ratings?: number;
   profile: {
     full_name: string;
     bio?: string;
@@ -55,6 +50,16 @@ interface Speaker {
       name: string;
     };
   }>;
+  feedback?: Array<{
+    id: string;
+    reviewer_notes: string;
+    event: {
+      title: string;
+      date_time: string;
+    };
+    rating?: number;
+    source: "booking" | "review";
+  }>;
 }
 
 const Speakers = () => {
@@ -63,18 +68,11 @@ const Speakers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLevel, setFilterLevel] = useState("all");
   const [filterAvailable, setFilterAvailable] = useState("all");
-  const [userProfile, setUserProfile] = useState<{ user_type: string } | null>(
-    null
-  );
   const { toast } = useToast();
-  const { user } = useAuth();
 
   useEffect(() => {
     fetchSpeakers();
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user]);
+  }, []);
 
   const fetchSpeakers = async () => {
     try {
@@ -90,7 +88,19 @@ const Speakers = () => {
         .order("average_rating", { ascending: false });
 
       if (error) throw error;
-      setSpeakers(data || []);
+
+      // Fetch feedback for each speaker
+      const speakersWithFeedback = await Promise.all(
+        (data || []).map(async (speaker) => {
+          const feedbackData = await fetchSpeakerFeedback(speaker.id);
+          return {
+            ...speaker,
+            feedback: feedbackData,
+          };
+        })
+      );
+
+      setSpeakers(speakersWithFeedback);
     } catch (error) {
       toast({
         title: "Error loading speakers",
@@ -102,20 +112,62 @@ const Speakers = () => {
     }
   };
 
-  const fetchUserProfile = async () => {
-    if (!user) return;
-
+  const fetchSpeakerFeedback = async (speakerId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_type")
-        .eq("user_id", user.id)
-        .single();
+      // Get feedback from bookings table
+      const { data: bookingsFeedback, error: bookingsError } = await supabase
+        .from("bookings")
+        .select(
+          `
+          id,
+          reviewer_notes,
+          event:events(title, date_time)
+        `
+        )
+        .eq("speaker_id", speakerId)
+        .not("reviewer_notes", "is", null)
+        .limit(3); // Limit to 3 most recent feedback items
 
-      if (error) throw error;
-      setUserProfile(data);
+      if (bookingsError) throw bookingsError;
+
+      // Get feedback from reviews table
+      const { data: reviewsFeedback, error: reviewsError } = await supabase
+        .from("reviews")
+        .select(
+          `
+          id,
+          comment,
+          rating,
+          booking:bookings(event:events(title, date_time))
+        `
+        )
+        .eq("reviewee_id", speakerId)
+        .not("comment", "is", null)
+        .limit(3);
+
+      if (reviewsError) throw reviewsError;
+
+      // Combine and format feedback
+      const combinedFeedback = [
+        ...(bookingsFeedback || []).map((item) => ({
+          id: item.id,
+          reviewer_notes: item.reviewer_notes,
+          event: item.event,
+          source: "booking" as const,
+        })),
+        ...(reviewsFeedback || []).map((item) => ({
+          id: item.id,
+          reviewer_notes: item.comment,
+          event: item.booking?.event,
+          rating: item.rating,
+          source: "review" as const,
+        })),
+      ];
+
+      return combinedFeedback.slice(0, 3); // Return top 3 feedback items
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error("Error fetching speaker feedback:", error);
+      return [];
     }
   };
 
@@ -125,9 +177,6 @@ const Speakers = () => {
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
       speaker.profile?.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      speaker.occupation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      speaker.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      speaker.primary_topic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       speaker.topics.some((t) =>
         t.topic.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -140,9 +189,6 @@ const Speakers = () => {
 
     return matchesSearch && matchesLevel && matchesAvailable;
   });
-
-  const canContactSpeakers =
-    userProfile?.user_type === "organizer" || userProfile?.user_type === "both";
 
   const formatRate = (rate?: number) => {
     if (!rate) return "Rate not specified";
@@ -233,15 +279,9 @@ const Speakers = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSpeakers.map((speaker) => (
-              <Card
-                key={speaker.id}
-                className="h-full flex flex-col hover:shadow-lg transition-shadow"
-              >
-                <Link
-                  to={`/speakers/${speaker.id}`}
-                  className="flex-1 flex flex-col"
-                >
-                  <CardHeader>
+              <Card key={speaker.id} className="h-full flex flex-col">
+                <Link to={`/speakers/${speaker.id}`} className="flex-1">
+                  <CardHeader className="hover:bg-gray-50 transition-colors">
                     <div className="flex items-start space-x-4">
                       <Avatar className="h-16 w-16">
                         <AvatarImage src={speaker.profile?.avatar_url} />
@@ -251,7 +291,7 @@ const Speakers = () => {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <CardTitle className="truncate hover:text-primary transition-colors">
+                          <CardTitle className="truncate">
                             {speaker.profile?.full_name}
                           </CardTitle>
                           {speaker.verified && (
@@ -270,26 +310,17 @@ const Speakers = () => {
                             {speaker.experience_level}
                           </Badge>
                         </div>
-                        {(speaker.occupation || speaker.company) && (
-                          <div className="text-sm text-muted-foreground">
-                            {speaker.occupation && speaker.company
-                              ? `${speaker.occupation} at ${speaker.company}`
-                              : speaker.occupation || speaker.company}
-                          </div>
-                        )}
                         {speaker.profile?.location && (
                           <div className="flex items-center text-sm text-muted-foreground">
                             <MapPin className="mr-1 h-3 w-3" />
                             {speaker.profile.location}
-                            {speaker.secondary_location &&
-                              ` • ${speaker.secondary_location}`}
                           </div>
                         )}
                       </div>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="flex-1 flex flex-col justify-between">
+                  <CardContent className="flex-1 flex flex-col justify-between hover:bg-gray-50 transition-colors">
                     <div className="space-y-4 mb-4">
                       {speaker.profile?.bio && (
                         <CardDescription className="line-clamp-3">
@@ -323,34 +354,74 @@ const Speakers = () => {
                       </div>
 
                       {/* Topics */}
-                      {(speaker.primary_topic || speaker.topics.length > 0) && (
+                      {speaker.topics.length > 0 && (
                         <div>
                           <p className="text-sm font-medium mb-2">Expertise:</p>
                           <div className="flex flex-wrap gap-1">
-                            {speaker.primary_topic && (
-                              <Badge variant="default" className="text-xs">
-                                {speaker.primary_topic} (Primary)
+                            {speaker.topics.slice(0, 4).map((topic, index) => (
+                              <Badge
+                                key={index}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {topic.topic.name}
+                              </Badge>
+                            ))}
+                            {speaker.topics.length > 4 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{speaker.topics.length - 4} more
                               </Badge>
                             )}
-                            {speaker.topics
-                              .slice(0, speaker.primary_topic ? 3 : 4)
-                              .map((topic, index) => (
-                                <Badge
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Feedback */}
+                      {speaker.feedback && speaker.feedback.length > 0 && (
+                        <div>
+                          <div className="flex items-center mb-2">
+                            <MessageSquare className="mr-1 h-3 w-3" />
+                            <p className="text-sm font-medium">
+                              Recent Feedback:
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {speaker.feedback
+                              .slice(0, 2)
+                              .map((feedback, index) => (
+                                <div
                                   key={index}
-                                  variant="outline"
-                                  className="text-xs"
+                                  className="bg-gray-50 p-2 rounded-md"
                                 >
-                                  {topic.topic.name}
-                                </Badge>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {feedback.source === "review"
+                                        ? "Review"
+                                        : "Event Feedback"}
+                                    </Badge>
+                                    {feedback.rating && (
+                                      <div className="flex items-center">
+                                        {renderStars(feedback.rating)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-2">
+                                    {feedback.reviewer_notes}
+                                  </p>
+                                  {feedback.event && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Event: {feedback.event.title}
+                                    </p>
+                                  )}
+                                </div>
                               ))}
-                            {speaker.topics.length >
-                              (speaker.primary_topic ? 3 : 4) && (
-                              <Badge variant="outline" className="text-xs">
-                                +
-                                {speaker.topics.length -
-                                  (speaker.primary_topic ? 3 : 4)}{" "}
-                                more
-                              </Badge>
+                            {speaker.feedback.length > 2 && (
+                              <p className="text-xs text-muted-foreground text-center">
+                                +{speaker.feedback.length - 2} more reviews
+                              </p>
                             )}
                           </div>
                         </div>
@@ -359,45 +430,22 @@ const Speakers = () => {
                   </CardContent>
                 </Link>
 
-                {/* Action buttons outside the link to prevent nested links */}
+                {/* Action button outside the link to prevent nested interactive elements */}
                 <CardContent className="pt-0">
-                  <div className="pt-4 border-t space-y-2">
-                    {speaker.portfolio_url && (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(speaker.portfolio_url, "_blank");
-                        }}
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        View Portfolio
-                      </Button>
-                    )}
-                    {user && canContactSpeakers ? (
-                      <Button
-                        className="w-full"
-                        disabled={!speaker.available}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // This would eventually open a contact modal or redirect to contact form
-                          window.location.href = `/speakers/${speaker.id}`;
-                        }}
-                      >
-                        {speaker.available
-                          ? "Contact Speaker"
-                          : "Currently Unavailable"}
-                      </Button>
-                    ) : !user ? (
-                      <Button
-                        className="w-full"
-                        disabled
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Sign in to contact speakers
-                      </Button>
-                    ) : null}
+                  <div className="pt-4 border-t">
+                    <Button
+                      className="w-full"
+                      disabled={!speaker.available}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Navigate to contact/booking page or open contact modal
+                        window.location.href = `/speakers/${speaker.id}`;
+                      }}
+                    >
+                      {speaker.available
+                        ? "Contact Speaker"
+                        : "Currently Unavailable"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

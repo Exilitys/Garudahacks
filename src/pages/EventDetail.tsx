@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -46,6 +46,8 @@ import {
   CheckCircle,
   XCircle,
   Clock as PendingIcon,
+  User,
+  CreditCard,
 } from "lucide-react";
 
 interface EventDetails {
@@ -95,6 +97,7 @@ const EventDetail = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [confirmedSpeakers, setConfirmedSpeakers] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<{ user_type: string } | null>(
     null
@@ -116,12 +119,26 @@ const EventDetail = () => {
     if (id) {
       fetchEventDetails();
       fetchApplications();
+      fetchConfirmedSpeakers();
     }
     if (user) {
       fetchUserProfile();
       checkUserApplicationStatus();
     }
   }, [id, user]);
+
+  // Add focus event listener to refresh data when user returns to page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (id) {
+        fetchApplications();
+        fetchConfirmedSpeakers();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [id]);
 
   const fetchEventDetails = async () => {
     if (!id) return;
@@ -188,12 +205,41 @@ const EventDetail = () => {
         `
         )
         .eq("event_id", id)
+        .neq("status", "paid")
         .order("created_at", { ascending: false });
 
       if (error && error.code !== "PGRST116") throw error;
       setApplications(data || []);
     } catch (error) {
       console.error("Error fetching applications:", error);
+    }
+  };
+
+  const fetchConfirmedSpeakers = async () => {
+    if (!id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select(
+          `
+          *,
+          speaker:speakers(
+            id,
+            experience_level,
+            average_rating,
+            profile:profiles!profile_id(full_name, avatar_url)
+          )
+        `
+        )
+        .eq("event_id", id)
+        .in("status", ["accepted", "paid"])
+        .order("created_at", { ascending: false });
+
+      if (error && error.code !== "PGRST116") throw error;
+      setConfirmedSpeakers(data || []);
+    } catch (error) {
+      console.error("Error fetching confirmed speakers:", error);
     }
   };
 
@@ -353,6 +399,7 @@ const EventDetail = () => {
         proposed_rate: "",
       });
       await fetchApplications(); // Refresh applications
+      await fetchConfirmedSpeakers(); // Refresh confirmed speakers
       await checkUserApplicationStatus(); // Check application status
     } catch (error: any) {
       console.error("Error submitting application:", error);
@@ -407,6 +454,15 @@ const EventDetail = () => {
         return <Badge variant="outline">In Progress</Badge>;
       case "completed":
         return <Badge variant="secondary">Completed</Badge>;
+      case "finished":
+        return (
+          <Badge
+            variant="default"
+            className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+          >
+            Finished
+          </Badge>
+        );
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
@@ -439,6 +495,43 @@ const EventDetail = () => {
         );
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const handleApplicationAction = async (
+    applicationId: string,
+    action: "accepted" | "rejected"
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .update({
+          status: action,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", applicationId);
+
+      if (error) throw error;
+
+      toast({
+        title: `Application ${action}`,
+        description: `The speaker application has been ${action}.`,
+        variant: action === "accepted" ? "default" : "destructive",
+      });
+
+      // Refresh applications and confirmed speakers to show updated status
+      await fetchApplications();
+      await fetchConfirmedSpeakers();
+    } catch (error) {
+      console.error(`Error ${action} application:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action.replace(
+          "ed",
+          ""
+        )} application. Please try again.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -806,7 +899,7 @@ const EventDetail = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="max-h-96 overflow-y-auto space-y-4">
                     {applications.map((application) => (
                       <div
                         key={application.id}
@@ -834,7 +927,14 @@ const EventDetail = () => {
                                     ? "default"
                                     : application.status === "rejected"
                                     ? "destructive"
+                                    : application.status === "paid"
+                                    ? "default"
                                     : "outline"
+                                }
+                                className={
+                                  application.status === "paid"
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+                                    : ""
                                 }
                               >
                                 {application.status}
@@ -869,6 +969,177 @@ const EventDetail = () => {
                                 application.created_at
                               ).toLocaleDateString()}
                             </p>
+
+                            {/* Action buttons for organizers */}
+                            {isOrganizer && (
+                              <div className="mt-3 flex gap-2">
+                                <Link
+                                  to={`/speakers/${application.speaker.id}`}
+                                >
+                                  <Button size="sm" variant="outline">
+                                    <User className="mr-1 h-4 w-4" />
+                                    View Profile
+                                  </Button>
+                                </Link>
+
+                                {application.status === "pending" && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() =>
+                                        handleApplicationAction(
+                                          application.id,
+                                          "accepted"
+                                        )
+                                      }
+                                    >
+                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                      Accept
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() =>
+                                        handleApplicationAction(
+                                          application.id,
+                                          "rejected"
+                                        )
+                                      }
+                                    >
+                                      <XCircle className="mr-1 h-4 w-4" />
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+
+                                {application.status === "accepted" && (
+                                  <Link to={`/payment/${application.id}`}>
+                                    <Button size="sm" variant="default">
+                                      <CreditCard className="mr-1 h-4 w-4" />
+                                      Pay Speaker
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {application.status === "paid" && (
+                                  <Button size="sm" variant="outline" disabled>
+                                    <CheckCircle className="mr-1 h-4 w-4" />
+                                    Payment Completed
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Confirmed Speakers - Only show to organizer */}
+            {isOrganizer && confirmedSpeakers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Confirmed Speakers</CardTitle>
+                  <CardDescription>
+                    Speakers who have been accepted and/or paid for this event
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-96 overflow-y-auto space-y-4">
+                    {confirmedSpeakers.map((speaker) => (
+                      <div
+                        key={speaker.id}
+                        className="p-4 border rounded-lg bg-green-50 dark:bg-green-950/10"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage
+                              src={speaker.speaker.profile.avatar_url}
+                            />
+                            <AvatarFallback>
+                              {speaker.speaker.profile.full_name
+                                .charAt(0)
+                                .toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium">
+                                {speaker.speaker.profile.full_name}
+                              </h4>
+                              <Badge
+                                variant={
+                                  speaker.status === "paid"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className={
+                                  speaker.status === "paid"
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+                                    : ""
+                                }
+                              >
+                                {speaker.status === "paid"
+                                  ? "Paid"
+                                  : "Confirmed"}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                              <Badge variant="outline" className="text-xs">
+                                {speaker.speaker.experience_level}
+                              </Badge>
+                              {speaker.speaker.average_rating > 0 && (
+                                <span>
+                                  ⭐ {speaker.speaker.average_rating.toFixed(1)}
+                                </span>
+                              )}
+                              {speaker.proposed_rate && (
+                                <span>${speaker.proposed_rate / 100}/hour</span>
+                              )}
+                            </div>
+                            {speaker.message && (
+                              <p className="text-sm text-muted-foreground">
+                                {speaker.message}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Applied{" "}
+                              {new Date(
+                                speaker.created_at
+                              ).toLocaleDateString()}
+                            </p>
+
+                            {/* Action buttons for organizers */}
+                            {isOrganizer && (
+                              <div className="mt-3 flex gap-2">
+                                <Link to={`/speakers/${speaker.speaker.id}`}>
+                                  <Button size="sm" variant="outline">
+                                    <User className="mr-1 h-4 w-4" />
+                                    View Profile
+                                  </Button>
+                                </Link>
+
+                                {speaker.status === "accepted" && (
+                                  <Link to={`/payment/${speaker.id}`}>
+                                    <Button size="sm" variant="default">
+                                      <CreditCard className="mr-1 h-4 w-4" />
+                                      Pay Speaker
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {speaker.status === "paid" && (
+                                  <Button size="sm" variant="outline" disabled>
+                                    <CheckCircle className="mr-1 h-4 w-4" />
+                                    Payment Completed
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SpeakerPaymentNotifications from "@/components/SpeakerPaymentNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -73,12 +74,25 @@ const SpeakerEvents = () => {
   );
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
       fetchUserProfile();
       fetchMyApplications();
     }
+  }, [user]);
+
+  // Add focus event listener to refresh data when user returns to page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchMyApplications();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [user]);
 
   const fetchUserProfile = async () => {
@@ -209,9 +223,19 @@ const SpeakerEvents = () => {
     switch (status) {
       case "accepted":
         return (
-          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+          <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">
             <CheckCircle className="mr-1 h-3 w-3" />
             Accepted
+          </Badge>
+        );
+      case "paid":
+        return (
+          <Badge
+            variant="default"
+            className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+          >
+            <CheckCircle className="mr-1 h-3 w-3" />
+            Paid
           </Badge>
         );
       case "rejected":
@@ -241,6 +265,15 @@ const SpeakerEvents = () => {
         return <Badge variant="outline">In Progress</Badge>;
       case "completed":
         return <Badge variant="secondary">Completed</Badge>;
+      case "finished":
+        return (
+          <Badge
+            variant="default"
+            className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+          >
+            Finished
+          </Badge>
+        );
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
@@ -251,7 +284,9 @@ const SpeakerEvents = () => {
   const stats = {
     total: applications.length,
     pending: applications.filter((app) => app.status === "pending").length,
-    accepted: applications.filter((app) => app.status === "accepted").length,
+    accepted: applications.filter(
+      (app) => app.status === "accepted" || app.status === "paid"
+    ).length,
     rejected: applications.filter((app) => app.status === "rejected").length,
   };
 
@@ -364,6 +399,11 @@ const SpeakerEvents = () => {
           </Card>
         </div>
 
+        {/* Payment Notifications */}
+        <div className="mb-8">
+          <SpeakerPaymentNotifications />
+        </div>
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -420,7 +460,7 @@ const SpeakerEvents = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6">
+              <div className="max-h-96 overflow-y-auto grid gap-6">
                 {filteredApplications.map((application) => (
                   <Card
                     key={application.id}
@@ -549,7 +589,7 @@ const SpeakerEvents = () => {
           </TabsContent>
 
           <TabsContent value="pending" className="space-y-4">
-            <div className="grid gap-6">
+            <div className="max-h-96 overflow-y-auto grid gap-6">
               {filteredApplications
                 .filter((app) => app.status === "pending")
                 .map((application) => (
@@ -618,9 +658,11 @@ const SpeakerEvents = () => {
           </TabsContent>
 
           <TabsContent value="accepted" className="space-y-4">
-            <div className="grid gap-6">
+            <div className="max-h-96 overflow-y-auto grid gap-6">
               {filteredApplications
-                .filter((app) => app.status === "accepted")
+                .filter(
+                  (app) => app.status === "accepted" || app.status === "paid"
+                )
                 .map((application) => (
                   <Card
                     key={application.id}
@@ -699,6 +741,36 @@ const SpeakerEvents = () => {
                             </div>
                           )}
 
+                          {/* Complete Event Button - only show for paid events that have passed */}
+                          {(() => {
+                            const eventHasPassed =
+                              new Date(application.event.date_time).getTime() +
+                                2 * 60 * 60 * 1000 <
+                              Date.now();
+                            const isPaidStatus = application.status === "paid";
+                            const isNotCompleted =
+                              application.status !== "completed";
+
+                            return (
+                              isPaidStatus &&
+                              eventHasPassed &&
+                              isNotCompleted && (
+                                <Button
+                                  variant="outline"
+                                  className="w-full mb-2"
+                                  onClick={() =>
+                                    navigate(
+                                      `/event-completion/${application.id}`
+                                    )
+                                  }
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Complete Event
+                                </Button>
+                              )
+                            );
+                          })()}
+
                           <Link to={`/events/${application.event.id}`}>
                             <Button className="w-full">
                               <Eye className="mr-2 h-4 w-4" />
@@ -714,7 +786,7 @@ const SpeakerEvents = () => {
           </TabsContent>
 
           <TabsContent value="rejected" className="space-y-4">
-            <div className="grid gap-6">
+            <div className="max-h-96 overflow-y-auto grid gap-6">
               {filteredApplications
                 .filter((app) => app.status === "rejected")
                 .map((application) => (

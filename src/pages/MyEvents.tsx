@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -16,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,9 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  User,
+  Plus,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -66,6 +72,7 @@ interface Booking {
   created_at: string;
   speaker: {
     id: string;
+    hourly_rate?: number;
     experience_level: string;
     average_rating: number;
     total_talks: number;
@@ -79,12 +86,17 @@ interface Booking {
   event: {
     id: string;
     title: string;
+    date_time?: string;
+    location?: string;
+    format?: string;
+    duration_hours: number;
   };
 }
 
 const MyEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [confirmedSpeakers, setConfirmedSpeakers] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<{ user_type: string } | null>(
     null
@@ -93,16 +105,59 @@ const MyEvents = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [eventBookings, setEventBookings] = useState<Booking[]>([]);
+  const [eventConfirmedSpeakers, setEventConfirmedSpeakers] = useState<
+    Booking[]
+  >([]);
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  // Event creation dialog state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [topics, setTopics] = useState<Array<{ id: string; name: string }>>([]);
+  const [eventForm, setEventForm] = useState({
+    title: "",
+    description: "",
+    event_type: "lecture" as
+      | "lecture"
+      | "seminar"
+      | "workshop"
+      | "webinar"
+      | "conference"
+      | "other",
+    format: "in-person" as "in-person" | "virtual" | "hybrid",
+    location: "",
+    date_time: "",
+    duration_hours: "",
+    budget_min: "",
+    budget_max: "",
+    required_topics: [] as string[],
+  });
+
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
       fetchUserProfile();
       fetchMyEvents();
       fetchMyBookings();
+      fetchConfirmedSpeakers();
+      loadTopics();
     }
+  }, [user]);
+
+  // Add focus event listener to refresh data when user returns to page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchMyBookings();
+        fetchConfirmedSpeakers();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [user]);
 
   const fetchUserProfile = async () => {
@@ -169,7 +224,7 @@ const MyEvents = () => {
 
       if (profileError) throw profileError;
 
-      // Fetch bookings for events organized by this user
+      // Fetch bookings for events organized by this user (exclude paid ones for applications view)
       const { data, error } = await supabase
         .from("bookings")
         .select(
@@ -177,15 +232,17 @@ const MyEvents = () => {
           *,
           speaker:speakers!speaker_id(
             id,
+            hourly_rate,
             experience_level,
             average_rating,
             total_talks,
             profile:profiles!profile_id(full_name, avatar_url, bio, location)
           ),
-          event:events!event_id(id, title)
+          event:events!event_id(id, title, duration_hours)
         `
         )
         .eq("organizer_id", profile.id)
+        .neq("status", "paid")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -195,9 +252,20 @@ const MyEvents = () => {
     }
   };
 
-  const fetchEventBookings = async (eventId: string) => {
-    setBookingLoading(true);
+  const fetchConfirmedSpeakers = async () => {
+    if (!user) return;
+
     try {
+      // Get user's profile ID first
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Fetch confirmed speakers (accepted and paid bookings) for events organized by this user
       const { data, error } = await supabase
         .from("bookings")
         .select(
@@ -205,19 +273,64 @@ const MyEvents = () => {
           *,
           speaker:speakers!speaker_id(
             id,
+            hourly_rate,
             experience_level,
             average_rating,
             total_talks,
             profile:profiles!profile_id(full_name, avatar_url, bio, location)
           ),
-          event:events!event_id(id, title)
+          event:events!event_id(id, title, date_time, location, format, duration_hours)
+        `
+        )
+        .eq("organizer_id", profile.id)
+        .in("status", ["accepted", "paid"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setConfirmedSpeakers(data || []);
+    } catch (error) {
+      console.error("Error fetching confirmed speakers:", error);
+    }
+  };
+
+  const fetchEventBookings = async (eventId: string) => {
+    setBookingLoading(true);
+    try {
+      // Fetch all bookings for this event
+      const { data, error } = await supabase
+        .from("bookings")
+        .select(
+          `
+          *,
+          speaker:speakers!speaker_id(
+            id,
+            hourly_rate,
+            experience_level,
+            average_rating,
+            total_talks,
+            profile:profiles!profile_id(full_name, avatar_url, bio, location)
+          ),
+          event:events!event_id(id, title, duration_hours)
         `
         )
         .eq("event_id", eventId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setEventBookings(data || []);
+
+      const allBookings = data || [];
+
+      // Filter applications (exclude paid bookings since they belong in confirmed speakers)
+      const applications = allBookings.filter(
+        (booking) => booking.status !== "paid"
+      );
+      setEventBookings(applications);
+
+      // Filter confirmed speakers for this event (accepted or paid)
+      const confirmed = allBookings.filter(
+        (booking) => booking.status === "accepted" || booking.status === "paid"
+      );
+      setEventConfirmedSpeakers(confirmed);
     } catch (error) {
       console.error("Error fetching event bookings:", error);
       toast({
@@ -227,6 +340,35 @@ const MyEvents = () => {
       });
     } finally {
       setBookingLoading(false);
+    }
+  };
+
+  const fetchEventConfirmedSpeakers = async (eventId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select(
+          `
+          *,
+          speaker:speakers!speaker_id(
+            id,
+            hourly_rate,
+            experience_level,
+            average_rating,
+            total_talks,
+            profile:profiles!profile_id(full_name, avatar_url, bio, location)
+          ),
+          event:events!event_id(id, title, date_time, location, format, duration_hours)
+        `
+        )
+        .eq("event_id", eventId)
+        .in("status", ["accepted", "paid"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setEventConfirmedSpeakers(data || []);
+    } catch (error) {
+      console.error("Error fetching event confirmed speakers:", error);
     }
   };
 
@@ -247,10 +389,12 @@ const MyEvents = () => {
         description: `The speaker application has been ${action}.`,
       });
 
-      // Refresh bookings
+      // Refresh bookings and confirmed speakers
       fetchMyBookings();
+      fetchConfirmedSpeakers();
       if (selectedEvent) {
         fetchEventBookings(selectedEvent);
+        fetchEventConfirmedSpeakers(selectedEvent);
       }
     } catch (error) {
       console.error("Error updating booking:", error);
@@ -275,10 +419,19 @@ const MyEvents = () => {
     return bookings.filter((booking) => booking.event.id === eventId).length;
   };
 
+  const getConfirmedSpeakersCount = (eventId: string) => {
+    return confirmedSpeakers.filter((booking) => booking.event.id === eventId)
+      .length;
+  };
+
   const getPendingApplicationCount = (eventId: string) => {
     return bookings.filter(
       (booking) => booking.event.id === eventId && booking.status === "pending"
     ).length;
+  };
+
+  const getConfirmedBookingsForEvent = (eventId: string) => {
+    return confirmedSpeakers.filter((booking) => booking.event.id === eventId);
   };
 
   const formatDate = (dateString: string) => {
@@ -311,6 +464,107 @@ const MyEvents = () => {
       </span>
     ));
   };
+
+  // Load topics for event creation
+  const loadTopics = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("topics")
+        .select("*")
+        .order("name");
+
+      if (error) throw error;
+      setTopics(data || []);
+    } catch (error) {
+      console.error("Error loading topics:", error);
+    }
+  };
+
+  // Handle topic toggle for event creation
+  const handleTopicToggle = (topicName: string) => {
+    setEventForm((prev) => ({
+      ...prev,
+      required_topics: prev.required_topics.includes(topicName)
+        ? prev.required_topics.filter((t) => t !== topicName)
+        : [...prev.required_topics, topicName],
+    }));
+  };
+
+  // Handle event creation
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !userProfile) return;
+
+    setCreateLoading(true);
+
+    try {
+      // Get the user's profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Create the event
+      const { error } = await supabase.from("events").insert({
+        organizer_id: profile.id,
+        title: eventForm.title,
+        description: eventForm.description,
+        event_type: eventForm.event_type,
+        format: eventForm.format,
+        location: eventForm.location || null,
+        date_time: new Date(eventForm.date_time).toISOString(),
+        duration_hours: parseInt(eventForm.duration_hours),
+        budget_min: eventForm.budget_min
+          ? parseInt(eventForm.budget_min) * 100
+          : null, // Convert to cents
+        budget_max: eventForm.budget_max
+          ? parseInt(eventForm.budget_max) * 100
+          : null, // Convert to cents
+        required_topics: eventForm.required_topics,
+        status: "open",
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Event created!",
+        description: "Your event has been posted successfully.",
+      });
+
+      // Reset form and close dialog
+      setEventForm({
+        title: "",
+        description: "",
+        event_type: "lecture",
+        format: "in-person",
+        location: "",
+        date_time: "",
+        duration_hours: "",
+        budget_min: "",
+        budget_max: "",
+        required_topics: [],
+      });
+      setShowCreateDialog(false);
+
+      // Refresh events list
+      fetchMyEvents();
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create event. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const canCreateEvents =
+    userProfile?.user_type === "organizer" || userProfile?.user_type === "both";
 
   // Check if user has access to this page
   if (!user) {
@@ -368,10 +622,262 @@ const MyEvents = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">My Events</h1>
-          <p className="text-muted-foreground">
-            Manage your events and review speaker applications
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">My Events Dashboard</h1>
+              <p className="text-muted-foreground">
+                Manage your events, review speaker applications, and track
+                confirmed speakers
+              </p>
+            </div>
+            {user && canCreateEvents && (
+              <Dialog
+                open={showCreateDialog}
+                onOpenChange={setShowCreateDialog}
+              >
+                <DialogTrigger asChild>
+                  <Button size="lg" className="w-full sm:w-auto">
+                    <Plus className="mr-2 h-5 w-5" />
+                    Post New Event
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create New Event</DialogTitle>
+                    <DialogDescription>
+                      Post a new speaking opportunity for the community
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateEvent} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="title">Event Title *</Label>
+                      <Input
+                        id="title"
+                        value={eventForm.title}
+                        onChange={(e) =>
+                          setEventForm({ ...eventForm, title: e.target.value })
+                        }
+                        placeholder="e.g., Tech Innovation Conference 2025"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description *</Label>
+                      <Textarea
+                        id="description"
+                        value={eventForm.description}
+                        onChange={(e) =>
+                          setEventForm({
+                            ...eventForm,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Describe your event and what you're looking for in a speaker..."
+                        rows={3}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="event-type">Event Type *</Label>
+                        <Select
+                          value={eventForm.event_type}
+                          onValueChange={(value) =>
+                            setEventForm({
+                              ...eventForm,
+                              event_type: value as any,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select event type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lecture">Lecture</SelectItem>
+                            <SelectItem value="seminar">Seminar</SelectItem>
+                            <SelectItem value="workshop">Workshop</SelectItem>
+                            <SelectItem value="webinar">Webinar</SelectItem>
+                            <SelectItem value="conference">
+                              Conference
+                            </SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="format">Format *</Label>
+                        <Select
+                          value={eventForm.format}
+                          onValueChange={(value) =>
+                            setEventForm({
+                              ...eventForm,
+                              format: value as any,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in-person">In-Person</SelectItem>
+                            <SelectItem value="virtual">Virtual</SelectItem>
+                            <SelectItem value="hybrid">Hybrid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={eventForm.location}
+                        onChange={(e) =>
+                          setEventForm({
+                            ...eventForm,
+                            location: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., New York City, NY or Online"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="date-time">Date & Time *</Label>
+                        <Input
+                          id="date-time"
+                          type="datetime-local"
+                          value={eventForm.date_time}
+                          onChange={(e) =>
+                            setEventForm({
+                              ...eventForm,
+                              date_time: e.target.value,
+                            })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="duration">Duration (hours) *</Label>
+                        <Input
+                          id="duration"
+                          type="number"
+                          min="0.5"
+                          step="0.5"
+                          value={eventForm.duration_hours}
+                          onChange={(e) =>
+                            setEventForm({
+                              ...eventForm,
+                              duration_hours: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., 2"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="budget-min">Budget Min (USD)</Label>
+                        <Input
+                          id="budget-min"
+                          type="number"
+                          min="0"
+                          value={eventForm.budget_min}
+                          onChange={(e) =>
+                            setEventForm({
+                              ...eventForm,
+                              budget_min: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., 500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="budget-max">Budget Max (USD)</Label>
+                        <Input
+                          id="budget-max"
+                          type="number"
+                          min="0"
+                          value={eventForm.budget_max}
+                          onChange={(e) =>
+                            setEventForm({
+                              ...eventForm,
+                              budget_max: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., 2000"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Required Topics</Label>
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-3">
+                        {topics.map((topic) => (
+                          <label
+                            key={topic.id}
+                            className="flex items-center space-x-2 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={eventForm.required_topics.includes(
+                                topic.name
+                              )}
+                              onChange={() => handleTopicToggle(topic.name)}
+                              className="rounded"
+                            />
+                            <span className="text-sm">{topic.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {eventForm.required_topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {eventForm.required_topics.map((topic, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {topic}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex space-x-3 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowCreateDialog(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createLoading}
+                        className="flex-1"
+                      >
+                        {createLoading && (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        Create Event
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="events" className="space-y-6">
@@ -381,6 +887,9 @@ const MyEvents = () => {
             </TabsTrigger>
             <TabsTrigger value="applications">
               All Applications ({bookings.length})
+            </TabsTrigger>
+            <TabsTrigger value="confirmed">
+              Confirmed Speakers ({confirmedSpeakers.length})
             </TabsTrigger>
           </TabsList>
 
@@ -405,6 +914,7 @@ const MyEvents = () => {
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="finished">Finished</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -426,43 +936,59 @@ const MyEvents = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEvents.map((event) => (
-                  <Card key={event.id} className="h-full flex flex-col">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <Badge
-                          variant={
-                            event.status === "open" ? "default" : "secondary"
-                          }
-                          className="mb-2"
-                        >
-                          {event.status.replace("_", " ")}
-                        </Badge>
-                        <Badge variant="outline">{event.format}</Badge>
-                      </div>
-                      <CardTitle className="line-clamp-2">
-                        {event.title}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-3">
-                        {event.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col justify-between">
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {formatDate(event.date_time)}
+                  <Card
+                    key={event.id}
+                    className="h-full flex flex-col hover:shadow-lg transition-shadow"
+                  >
+                    <Link
+                      to={`/events/${event.id}`}
+                      className="flex-1 flex flex-col cursor-pointer"
+                    >
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <Badge
+                            variant={
+                              event.status === "open"
+                                ? "default"
+                                : event.status === "finished"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className={`mb-2 ${
+                              event.status === "finished"
+                                ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+                                : ""
+                            }`}
+                          >
+                            {event.status.replace("_", " ")}
+                          </Badge>
+                          <Badge variant="outline">{event.format}</Badge>
                         </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Clock className="mr-2 h-4 w-4" />
-                          {event.duration_hours} hour
-                          {event.duration_hours !== 1 ? "s" : ""}
-                        </div>
-                        {event.location && (
+                        <CardTitle className="line-clamp-2 hover:text-primary transition-colors">
+                          {event.title}
+                        </CardTitle>
+                        <CardDescription className="line-clamp-3">
+                          {event.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-1">
+                        <div className="space-y-3 mb-4">
                           <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="mr-2 h-4 w-4" />
-                            {event.location}
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formatDate(event.date_time)}
                           </div>
-                        )}
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Clock className="mr-2 h-4 w-4" />
+                            {event.duration_hours} hour
+                            {event.duration_hours !== 1 ? "s" : ""}
+                          </div>
+                          {event.location && (
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <MapPin className="mr-2 h-4 w-4" />
+                              {event.location}
+                            </div>
+                          )}
+                        </div>
                         <div className="flex items-center text-sm text-muted-foreground">
                           <DollarSign className="mr-2 h-4 w-4" />
                           {formatBudget(event.budget_min, event.budget_max)}
@@ -479,168 +1005,479 @@ const MyEvents = () => {
                             </Badge>
                           )}
                         </div>
-                      </div>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {getConfirmedSpeakersCount(event.id)} confirmed
+                          speakers
+                        </div>
+                      </CardContent>
+                    </Link>
+
+                    {/* Action buttons - outside of Link to remain interactive */}
+                    <CardContent className="pt-0">
                       <div className="pt-4 border-t">
-                        <Dialog
-                          onOpenChange={(open) => {
-                            if (open) {
-                              setSelectedEvent(event.id);
-                              fetchEventBookings(event.id);
-                            } else {
-                              setSelectedEvent(null);
-                              setEventBookings([]);
-                            }
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button className="w-full">
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Applications
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle>
-                                Applications for "{event.title}"
-                              </DialogTitle>
-                              <DialogDescription>
-                                Review and manage speaker applications for this
-                                event
-                              </DialogDescription>
-                            </DialogHeader>
-                            {bookingLoading ? (
-                              <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-8 w-8 animate-spin" />
-                              </div>
-                            ) : eventBookings.length === 0 ? (
-                              <div className="text-center py-8">
-                                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                                <p className="text-muted-foreground">
-                                  No applications yet for this event.
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                {eventBookings.map((booking) => (
-                                  <Card key={booking.id}>
-                                    <CardContent className="p-4">
-                                      <div className="flex items-start space-x-4">
-                                        <Avatar className="h-12 w-12">
-                                          <AvatarImage
-                                            src={
-                                              booking.speaker.profile.avatar_url
-                                            }
-                                          />
-                                          <AvatarFallback>
-                                            {booking.speaker.profile.full_name
-                                              .charAt(0)
-                                              .toUpperCase()}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <h4 className="font-semibold">
-                                              {
-                                                booking.speaker.profile
-                                                  .full_name
-                                              }
-                                            </h4>
-                                            <Badge
-                                              variant={
-                                                booking.status === "pending"
-                                                  ? "outline"
-                                                  : booking.status ===
-                                                    "accepted"
-                                                  ? "default"
-                                                  : "destructive"
-                                              }
-                                            >
-                                              {booking.status}
-                                            </Badge>
-                                          </div>
-                                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                            <span>
-                                              {booking.speaker.experience_level}
-                                            </span>
-                                            <span>
-                                              {booking.speaker.total_talks}{" "}
-                                              talks
-                                            </span>
-                                            <div className="flex items-center">
-                                              {renderStars(
-                                                booking.speaker.average_rating
-                                              )}
-                                              <span className="ml-1">
-                                                (
-                                                {booking.speaker.average_rating.toFixed(
-                                                  1
+                        <div className="space-y-2">
+                          <Dialog
+                            onOpenChange={(open) => {
+                              if (open) {
+                                setSelectedEvent(event.id);
+                                fetchEventBookings(event.id);
+                                fetchEventConfirmedSpeakers(event.id);
+                              } else {
+                                setSelectedEvent(null);
+                                setEventBookings([]);
+                                setEventConfirmedSpeakers([]);
+                              }
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button className="w-full">
+                                <Users className="mr-2 h-4 w-4" />
+                                View Applications (
+                                {getEventApplicationCount(event.id)})
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  "{event.title}" - Applications & Speakers
+                                </DialogTitle>
+                                <DialogDescription>
+                                  Review applications and manage confirmed
+                                  speakers for this event
+                                </DialogDescription>
+                              </DialogHeader>
+
+                              <Tabs
+                                defaultValue="applications"
+                                className="space-y-4"
+                              >
+                                <TabsList className="grid w-full grid-cols-2">
+                                  <TabsTrigger value="applications">
+                                    Applications ({eventBookings.length})
+                                  </TabsTrigger>
+                                  <TabsTrigger value="speakers">
+                                    Confirmed Speakers (
+                                    {eventConfirmedSpeakers.length})
+                                  </TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="applications">
+                                  {bookingLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                      <Loader2 className="h-8 w-8 animate-spin" />
+                                    </div>
+                                  ) : eventBookings.length === 0 ? (
+                                    <div className="text-center py-8">
+                                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                      <p className="text-muted-foreground">
+                                        No applications yet for this event.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="max-h-96 overflow-y-auto space-y-4">
+                                      {eventBookings.map((booking) => (
+                                        <Card key={booking.id}>
+                                          <CardContent className="p-4">
+                                            <div className="flex items-start space-x-4">
+                                              <Avatar className="h-12 w-12">
+                                                <AvatarImage
+                                                  src={
+                                                    booking.speaker.profile
+                                                      .avatar_url
+                                                  }
+                                                />
+                                                <AvatarFallback>
+                                                  {booking.speaker.profile.full_name
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-2">
+                                                  <h4 className="font-semibold">
+                                                    {
+                                                      booking.speaker.profile
+                                                        .full_name
+                                                    }
+                                                  </h4>
+                                                  <Badge
+                                                    variant={
+                                                      booking.status ===
+                                                      "pending"
+                                                        ? "outline"
+                                                        : booking.status ===
+                                                          "accepted"
+                                                        ? "default"
+                                                        : "destructive"
+                                                    }
+                                                  >
+                                                    {booking.status}
+                                                  </Badge>
+                                                </div>
+                                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                                  <span>
+                                                    {
+                                                      booking.speaker
+                                                        .experience_level
+                                                    }
+                                                  </span>
+                                                  <span>
+                                                    {
+                                                      booking.speaker
+                                                        .total_talks
+                                                    }{" "}
+                                                    talks
+                                                  </span>
+                                                  <div className="flex items-center">
+                                                    {renderStars(
+                                                      booking.speaker
+                                                        .average_rating
+                                                    )}
+                                                    <span className="ml-1">
+                                                      (
+                                                      {booking.speaker.average_rating.toFixed(
+                                                        1
+                                                      )}
+                                                      )
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                                {booking.speaker.profile
+                                                  .location && (
+                                                  <div className="flex items-center text-sm text-muted-foreground mb-2">
+                                                    <MapPin className="mr-1 h-3 w-3" />
+                                                    {
+                                                      booking.speaker.profile
+                                                        .location
+                                                    }
+                                                  </div>
                                                 )}
-                                                )
-                                              </span>
+                                                {booking.message && (
+                                                  <div className="mt-2">
+                                                    <p className="text-sm font-medium mb-1">
+                                                      Message:
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                      {booking.message}
+                                                    </p>
+                                                  </div>
+                                                )}
+                                                {booking.speaker.hourly_rate &&
+                                                  booking.event
+                                                    .duration_hours && (
+                                                    <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                                                      <div className="text-sm space-y-1">
+                                                        <div className="flex justify-between">
+                                                          <span>
+                                                            Hourly Rate:
+                                                          </span>
+                                                          <span>
+                                                            $
+                                                            {(booking.speaker
+                                                              .hourly_rate ||
+                                                              0) / 100}
+                                                            /hour
+                                                          </span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                          <span>
+                                                            Event Duration:
+                                                          </span>
+                                                          <span>
+                                                            {
+                                                              booking.event
+                                                                .duration_hours
+                                                            }{" "}
+                                                            hours
+                                                          </span>
+                                                        </div>
+                                                        <div className="border-t pt-1 flex justify-between font-medium">
+                                                          <span>
+                                                            Total Payment:
+                                                          </span>
+                                                          <span>
+                                                            $
+                                                            {((booking.speaker
+                                                              .hourly_rate ||
+                                                              0) *
+                                                              booking.event
+                                                                .duration_hours) /
+                                                              100}
+                                                          </span>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                <div className="flex space-x-2 mt-4">
+                                                  <Link
+                                                    to={`/speakers/${booking.speaker.id}`}
+                                                  >
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                    >
+                                                      <User className="mr-1 h-4 w-4" />
+                                                      View Profile
+                                                    </Button>
+                                                  </Link>
+                                                  <Link
+                                                    to={`/events/${booking.event.id}`}
+                                                  >
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                    >
+                                                      <Eye className="mr-1 h-4 w-4" />
+                                                      View Event
+                                                    </Button>
+                                                  </Link>
+                                                  {booking.status ===
+                                                    "pending" && (
+                                                    <>
+                                                      <Button
+                                                        size="sm"
+                                                        onClick={() =>
+                                                          handleBookingAction(
+                                                            booking.id,
+                                                            "accepted"
+                                                          )
+                                                        }
+                                                      >
+                                                        <CheckCircle className="mr-1 h-4 w-4" />
+                                                        Accept
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() =>
+                                                          handleBookingAction(
+                                                            booking.id,
+                                                            "rejected"
+                                                          )
+                                                        }
+                                                      >
+                                                        <XCircle className="mr-1 h-4 w-4" />
+                                                        Reject
+                                                      </Button>
+                                                    </>
+                                                  )}
+                                                  {booking.status ===
+                                                    "accepted" && (
+                                                    <Link
+                                                      to={`/payment/${booking.id}`}
+                                                    >
+                                                      <Button
+                                                        size="sm"
+                                                        variant="default"
+                                                      >
+                                                        <CreditCard className="mr-1 h-4 w-4" />
+                                                        Pay Speaker
+                                                      </Button>
+                                                    </Link>
+                                                  )}
+                                                  {booking.status ===
+                                                    "paid" && (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      disabled
+                                                    >
+                                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                                      Payment Completed
+                                                    </Button>
+                                                  )}
+                                                </div>
+                                              </div>
                                             </div>
-                                          </div>
-                                          {booking.speaker.profile.location && (
-                                            <div className="flex items-center text-sm text-muted-foreground mb-2">
-                                              <MapPin className="mr-1 h-3 w-3" />
-                                              {booking.speaker.profile.location}
+                                          </CardContent>
+                                        </Card>
+                                      ))}
+                                    </div>
+                                  )}
+                                </TabsContent>
+
+                                <TabsContent value="speakers">
+                                  {eventConfirmedSpeakers.length === 0 ? (
+                                    <div className="text-center py-8">
+                                      <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                      <p className="text-muted-foreground">
+                                        No confirmed speakers for this event
+                                        yet.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="max-h-96 overflow-y-auto space-y-4">
+                                      {eventConfirmedSpeakers.map((booking) => (
+                                        <Card key={booking.id}>
+                                          <CardContent className="p-4">
+                                            <div className="flex items-start space-x-4">
+                                              <Avatar className="h-12 w-12">
+                                                <AvatarImage
+                                                  src={
+                                                    booking.speaker.profile
+                                                      .avatar_url
+                                                  }
+                                                />
+                                                <AvatarFallback>
+                                                  {booking.speaker.profile.full_name
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-2">
+                                                  <h4 className="font-semibold">
+                                                    {
+                                                      booking.speaker.profile
+                                                        .full_name
+                                                    }
+                                                  </h4>
+                                                  <Badge variant="default">
+                                                    <CheckCircle className="mr-1 h-3 w-3" />
+                                                    Confirmed
+                                                  </Badge>
+                                                </div>
+                                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                                  <span>
+                                                    {
+                                                      booking.speaker
+                                                        .experience_level
+                                                    }
+                                                  </span>
+                                                  <span>
+                                                    {
+                                                      booking.speaker
+                                                        .total_talks
+                                                    }{" "}
+                                                    talks
+                                                  </span>
+                                                  <div className="flex items-center">
+                                                    {renderStars(
+                                                      booking.speaker
+                                                        .average_rating
+                                                    )}
+                                                    <span className="ml-1">
+                                                      (
+                                                      {booking.speaker.average_rating.toFixed(
+                                                        1
+                                                      )}
+                                                      )
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                                {booking.speaker.profile
+                                                  .location && (
+                                                  <div className="flex items-center text-sm text-muted-foreground mb-2">
+                                                    <MapPin className="mr-1 h-3 w-3" />
+                                                    {
+                                                      booking.speaker.profile
+                                                        .location
+                                                    }
+                                                  </div>
+                                                )}
+                                                {booking.agreed_rate && (
+                                                  <div className="mt-2 text-sm">
+                                                    <span className="font-medium">
+                                                      Agreed Rate:{" "}
+                                                    </span>
+                                                    ${booking.agreed_rate / 100}
+                                                    /hour
+                                                  </div>
+                                                )}
+                                                <div className="flex space-x-2 mt-4">
+                                                  <Link
+                                                    to={`/speakers/${booking.speaker.id}`}
+                                                  >
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                    >
+                                                      <User className="mr-1 h-4 w-4" />
+                                                      View Profile
+                                                    </Button>
+                                                  </Link>
+                                                  {booking.status ===
+                                                    "accepted" && (
+                                                    <Link
+                                                      to={`/payment/${booking.id}`}
+                                                    >
+                                                      <Button
+                                                        size="sm"
+                                                        variant="default"
+                                                      >
+                                                        <CreditCard className="mr-1 h-4 w-4" />
+                                                        Pay Speaker
+                                                      </Button>
+                                                    </Link>
+                                                  )}
+                                                  {booking.status ===
+                                                    "paid" && (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      disabled
+                                                    >
+                                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                                      Payment Completed
+                                                    </Button>
+                                                  )}
+                                                </div>
+                                              </div>
                                             </div>
-                                          )}
-                                          {booking.message && (
-                                            <div className="mt-2">
-                                              <p className="text-sm font-medium mb-1">
-                                                Message:
-                                              </p>
-                                              <p className="text-sm text-muted-foreground">
-                                                {booking.message}
-                                              </p>
-                                            </div>
-                                          )}
-                                          {booking.agreed_rate && (
-                                            <div className="mt-2 text-sm">
-                                              <span className="font-medium">
-                                                Proposed Rate:{" "}
-                                              </span>
-                                              ${booking.agreed_rate / 100}/hour
-                                            </div>
-                                          )}
-                                          {booking.status === "pending" && (
-                                            <div className="flex space-x-2 mt-4">
-                                              <Button
-                                                size="sm"
-                                                onClick={() =>
-                                                  handleBookingAction(
-                                                    booking.id,
-                                                    "accepted"
-                                                  )
-                                                }
-                                              >
-                                                <CheckCircle className="mr-1 h-4 w-4" />
-                                                Accept
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() =>
-                                                  handleBookingAction(
-                                                    booking.id,
-                                                    "rejected"
-                                                  )
-                                                }
-                                              >
-                                                <XCircle className="mr-1 h-4 w-4" />
-                                                Reject
-                                              </Button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ))}
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
+                                          </CardContent>
+                                        </Card>
+                                      ))}
+                                    </div>
+                                  )}
+                                </TabsContent>
+                              </Tabs>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Complete Event Button - only show for paid events that have passed */}
+                          {(() => {
+                            const confirmedBookings =
+                              getConfirmedBookingsForEvent(event.id);
+                            const hasConfirmedSpeakers =
+                              confirmedBookings.length > 0;
+                            const hasPaidBookings = confirmedBookings.some(
+                              (booking) => booking.status === "paid"
+                            );
+                            const eventHasPassed =
+                              new Date(event.date_time).getTime() +
+                                2 * 60 * 60 * 1000 <
+                              Date.now();
+                            const hasCompletedEvents = confirmedBookings.some(
+                              (booking) => booking.status === "completed"
+                            );
+
+                            return (
+                              hasConfirmedSpeakers &&
+                              hasPaidBookings &&
+                              eventHasPassed &&
+                              !hasCompletedEvents && (
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={() => {
+                                    const paidBooking = confirmedBookings.find(
+                                      (booking) => booking.status === "paid"
+                                    );
+                                    if (paidBooking) {
+                                      navigate(
+                                        `/event-completion/${paidBooking.id}`
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Complete Event
+                                </Button>
+                              )
+                            );
+                          })()}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -661,7 +1498,7 @@ const MyEvents = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="max-h-96 overflow-y-auto space-y-4">
                 {bookings.map((booking) => (
                   <Card key={booking.id}>
                     <CardContent className="p-6">
@@ -692,7 +1529,14 @@ const MyEvents = () => {
                                   ? "outline"
                                   : booking.status === "accepted"
                                   ? "default"
+                                  : booking.status === "paid"
+                                  ? "default"
                                   : "destructive"
+                              }
+                              className={
+                                booking.status === "paid"
+                                  ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+                                  : ""
                               }
                             >
                               {booking.status}
@@ -735,29 +1579,176 @@ const MyEvents = () => {
                               ${booking.agreed_rate / 100}/hour
                             </div>
                           )}
-                          {booking.status === "pending" && (
-                            <div className="flex space-x-2 mt-4">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handleBookingAction(booking.id, "accepted")
-                                }
-                              >
-                                <CheckCircle className="mr-1 h-4 w-4" />
-                                Accept
+                          <div className="flex space-x-2 mt-4">
+                            <Link to={`/speakers/${booking.speaker.id}`}>
+                              <Button size="sm" variant="outline">
+                                <User className="mr-1 h-4 w-4" />
+                                View Profile
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() =>
-                                  handleBookingAction(booking.id, "rejected")
-                                }
-                              >
-                                <XCircle className="mr-1 h-4 w-4" />
-                                Reject
+                            </Link>
+                            <Link to={`/events/${booking.event.id}`}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="mr-1 h-4 w-4" />
+                                View Event
                               </Button>
+                            </Link>
+                            {booking.status === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleBookingAction(booking.id, "accepted")
+                                  }
+                                >
+                                  <CheckCircle className="mr-1 h-4 w-4" />
+                                  Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    handleBookingAction(booking.id, "rejected")
+                                  }
+                                >
+                                  <XCircle className="mr-1 h-4 w-4" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="confirmed" className="space-y-6">
+            {confirmedSpeakers.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No confirmed speakers yet
+                </h3>
+                <p className="text-muted-foreground">
+                  You haven't confirmed any speakers for your events yet.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto space-y-4">
+                {confirmedSpeakers.map((booking) => (
+                  <Card key={booking.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start space-x-4">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage
+                            src={booking.speaker.profile.avatar_url}
+                          />
+                          <AvatarFallback>
+                            {booking.speaker.profile.full_name
+                              .charAt(0)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <h4 className="font-semibold">
+                                {booking.speaker.profile.full_name}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                Speaking at "{booking.event.title}"
+                              </p>
+                            </div>
+                            <Badge
+                              variant="default"
+                              className={
+                                booking.status === "paid"
+                                  ? "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-100"
+                                  : ""
+                              }
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              {booking.status === "paid" ? "Paid" : "Confirmed"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                            <span>{booking.speaker.experience_level}</span>
+                            <span>{booking.speaker.total_talks} talks</span>
+                            <div className="flex items-center">
+                              {renderStars(booking.speaker.average_rating)}
+                              <span className="ml-1">
+                                ({booking.speaker.average_rating.toFixed(1)})
+                              </span>
+                            </div>
+                          </div>
+                          {booking.speaker.profile.location && (
+                            <div className="flex items-center text-sm text-muted-foreground mb-2">
+                              <MapPin className="mr-1 h-3 w-3" />
+                              {booking.speaker.profile.location}
                             </div>
                           )}
+                          {booking.event.date_time && (
+                            <div className="flex items-center text-sm text-muted-foreground mb-2">
+                              <Calendar className="mr-1 h-3 w-3" />
+                              Event: {formatDate(booking.event.date_time)}
+                            </div>
+                          )}
+                          {booking.event.location && (
+                            <div className="flex items-center text-sm text-muted-foreground mb-2">
+                              <MapPin className="mr-1 h-3 w-3" />
+                              {booking.event.location}
+                            </div>
+                          )}
+                          <div className="text-sm text-muted-foreground mb-2">
+                            Confirmed on {formatDate(booking.created_at)}
+                          </div>
+                          {booking.message && (
+                            <div className="mt-2">
+                              <p className="text-sm font-medium mb-1">
+                                Speaker's Message:
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {booking.message}
+                              </p>
+                            </div>
+                          )}
+                          {booking.agreed_rate && (
+                            <div className="mt-2 text-sm">
+                              <span className="font-medium">Agreed Rate: </span>
+                              ${booking.agreed_rate / 100}/hour
+                            </div>
+                          )}
+                          <div className="flex space-x-2 mt-4">
+                            <Link to={`/speakers/${booking.speaker.id}`}>
+                              <Button size="sm" variant="outline">
+                                <User className="mr-1 h-4 w-4" />
+                                View Profile
+                              </Button>
+                            </Link>
+                            <Link to={`/events/${booking.event.id}`}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="mr-1 h-4 w-4" />
+                                View Event
+                              </Button>
+                            </Link>
+                            {booking.status === "accepted" && (
+                              <Link to={`/payment/${booking.id}`}>
+                                <Button size="sm" variant="default">
+                                  <CreditCard className="mr-1 h-4 w-4" />
+                                  Pay Speaker
+                                </Button>
+                              </Link>
+                            )}
+                            {booking.status === "paid" && (
+                              <Button size="sm" variant="outline" disabled>
+                                <CheckCircle className="mr-1 h-4 w-4" />
+                                Payment Completed
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>

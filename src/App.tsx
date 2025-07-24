@@ -15,6 +15,9 @@ import SpeakerDetail from "./pages/SpeakerDetail";
 import SpeakerInvitations from "./pages/SpeakerInvitations";
 import SpeakerEvents from "./pages/SpeakerEvents";
 import MyEvents from "./pages/MyEvents";
+import PaymentPage from "./pages/PaymentPage";
+import EventCompletion from "./pages/EventCompletion";
+import SpeakerDashboard from "./pages/SpeakerDashboard";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +42,12 @@ const App = () => (
             <Route path="/invitations" element={<SpeakerInvitations />} />
             <Route path="/speaker-events" element={<SpeakerEvents />} />
             <Route path="/my-events" element={<MyEvents />} />
+            <Route path="/payment/:bookingId" element={<PaymentPage />} />
+            <Route
+              path="/event-completion/:bookingId"
+              element={<EventCompletion />}
+            />
+            <Route path="/speaker-dashboard" element={<SpeakerDashboard />} />
             <Route path="/profile" element={<Profile />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
