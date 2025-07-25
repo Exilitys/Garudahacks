@@ -35,7 +35,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   MapPin,
   Star,
-  DollarSign,
+  Banknote,
   Verified,
   Award,
   ExternalLink,
