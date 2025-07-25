@@ -49,6 +49,7 @@ import {
   UserPlus,
   Loader2,
 } from "lucide-react";
+import { getAvatarUrl } from "@/lib/avatar-utils";
 
 interface SpeakerDetails {
   id: string;
@@ -136,6 +137,89 @@ const SpeakerDetail = () => {
     if (user) {
       fetchUserProfile();
     }
+
+    // Set up real-time subscription to speakers table for this specific speaker
+    // This will refresh the speaker details when statistics are updated
+    if (id) {
+      const speakerSubscription = supabase
+        .channel(`speaker-${id}-changes`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "speakers",
+            filter: `id=eq.${id}`,
+          },
+          () => {
+            console.log(
+              "Speaker statistics updated, refreshing speaker details..."
+            );
+            fetchSpeakerDetails();
+          }
+        )
+        .subscribe();
+
+      // Also listen for new reviews/ratings for this speaker
+      const reviewsSubscription = supabase
+        .channel(`speaker-${id}-reviews`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "bookings",
+            filter: `speaker_id=eq.${id}`,
+          },
+          (payload) => {
+            // Check if reviewer_notes was updated (new rating/feedback)
+            if (
+              payload.new?.reviewer_notes &&
+              payload.new.reviewer_notes !== payload.old?.reviewer_notes
+            ) {
+              console.log("New rating/feedback added, refreshing reviews...");
+              fetchSpeakerReviews();
+            }
+          }
+        )
+        .subscribe();
+
+      // Listen for profile updates (including avatar changes)
+      const profilesSubscription = supabase
+        .channel(`speaker-${id}-profile`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+          },
+          () => {
+            console.log(
+              "Profile updated (including avatar), refreshing speaker details..."
+            );
+            fetchSpeakerDetails();
+          }
+        )
+        .subscribe();
+
+      // Listen for custom avatar update events
+      const handleAvatarUpdate = () => {
+        console.log(
+          "Avatar updated event received, refreshing speaker details..."
+        );
+        fetchSpeakerDetails();
+      };
+
+      window.addEventListener("avatarUpdated", handleAvatarUpdate);
+
+      return () => {
+        speakerSubscription.unsubscribe();
+        reviewsSubscription.unsubscribe();
+        profilesSubscription.unsubscribe();
+        window.removeEventListener("avatarUpdated", handleAvatarUpdate);
+      };
+    }
   }, [id, user]);
 
   const fetchSpeakerDetails = async () => {
@@ -219,7 +303,6 @@ const SpeakerDetail = () => {
         )
         .eq("speaker_id", id)
         .not("reviewer_notes", "is", null)
-        .like("reviewer_notes", "Rating:%")
         .order("updated_at", { ascending: false });
 
       const combinedReviews: Review[] = [];
@@ -241,15 +324,35 @@ const SpeakerDetail = () => {
       if (bookingFeedback && !bookingError) {
         const formattedBookingFeedback = bookingFeedback.map((booking) => {
           // Extract rating and feedback from reviewer_notes
-          const ratingMatch = booking.reviewer_notes.match(
+          // Handle different formats of reviewer_notes
+          let rating = 5; // default rating
+          let comment = booking.reviewer_notes;
+
+          // Check if it's in the "Rating: X/5 stars. Feedback: ..." format
+          const structuredRatingMatch = booking.reviewer_notes.match(
             /Rating: (\d+)\/5 stars/
           );
-          const feedbackMatch = booking.reviewer_notes.match(/Feedback: (.+)$/);
+          const structuredFeedbackMatch =
+            booking.reviewer_notes.match(/Feedback: (.+)$/);
+
+          if (structuredRatingMatch) {
+            rating = parseInt(structuredRatingMatch[1]);
+            if (structuredFeedbackMatch) {
+              comment = structuredFeedbackMatch[1].trim();
+            } else {
+              // If there's no "Feedback:" part, just show the whole text after the rating
+              const afterRating = booking.reviewer_notes.replace(
+                /Rating: \d+\/5 stars\.?\s*/,
+                ""
+              );
+              comment = afterRating || "No additional feedback provided";
+            }
+          }
 
           return {
             id: `booking-${booking.id}`,
-            rating: ratingMatch ? parseInt(ratingMatch[1]) : 5,
-            comment: feedbackMatch ? feedbackMatch[1] : "No feedback provided",
+            rating: rating,
+            comment: comment,
             created_at: booking.updated_at,
             event_title: (booking.event as any)?.title || "Unknown Event",
             source: "bookings" as const,
@@ -490,8 +593,14 @@ const SpeakerDetail = () => {
         <Card className="mb-8">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
-              <Avatar className="h-32 w-32 mx-auto md:mx-0">
-                <AvatarImage src={speaker.profile?.avatar_url} />
+              <Avatar
+                key={speaker.profile?.avatar_url || speaker.id}
+                className="h-32 w-32 mx-auto md:mx-0"
+              >
+                <AvatarImage
+                  src={getAvatarUrl(speaker.profile?.avatar_url, speaker.id)}
+                  alt={speaker.profile?.full_name}
+                />
                 <AvatarFallback className="text-4xl">
                   {speaker.profile?.full_name?.charAt(0).toUpperCase()}
                 </AvatarFallback>

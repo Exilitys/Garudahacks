@@ -40,6 +40,7 @@ import {
   Camera,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { triggerAvatarUpdate } from "@/lib/avatar-utils";
 
 interface UserProfile {
   id: string;
@@ -88,6 +89,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -269,6 +271,100 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !user || !profile) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a JPEG, PNG, WebP, or GIF image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+
+    try {
+      // Create unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // Delete old avatar if exists
+      if (profile.avatar_url) {
+        const oldPath = profile.avatar_url.split("/").pop();
+        if (oldPath) {
+          await supabase.storage
+            .from("avatars")
+            .remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      // Upload new avatar
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL with cache busting
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(fileName);
+
+      // Add timestamp to force cache refresh
+      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("id", profile.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProfile({ ...profile, avatar_url: avatarUrl });
+
+      // Force refresh of all components by dispatching a custom event
+      triggerAvatarUpdate(profile.id, avatarUrl);
+
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been successfully updated.",
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Error uploading avatar",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      // Reset file input
+      event.target.value = "";
+    }
+  };
+
   const formatRate = (rate?: number) => {
     if (!rate) return "Not specified";
     return `$${rate / 100}/hour`;
@@ -325,19 +421,32 @@ const Profile = () => {
                 </AvatarFallback>
               </Avatar>
               {editMode && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0"
-                  onClick={() => {
-                    toast({
-                      title: "Avatar Upload",
-                      description: "Avatar upload functionality coming soon!",
-                    });
-                  }}
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
+                <>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <label htmlFor="avatar-upload">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0 cursor-pointer"
+                      asChild
+                      disabled={uploadingAvatar}
+                    >
+                      <span>
+                        {uploadingAvatar ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                      </span>
+                    </Button>
+                  </label>
+                </>
               )}
             </div>
             <div>
@@ -357,6 +466,21 @@ const Profile = () => {
                   <MapPin className="mr-1 h-3 w-3" />
                   {profile.location}
                 </div>
+              )}
+              {editMode && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Click the camera icon to upload a new profile picture
+                  <br />
+                  <button
+                    onClick={() => {
+                      // Force refresh avatar by triggering update event
+                      triggerAvatarUpdate(profile.id, profile.avatar_url || "");
+                    }}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Not seeing your new avatar? Click here to refresh
+                  </button>
+                </p>
               )}
             </div>
           </div>

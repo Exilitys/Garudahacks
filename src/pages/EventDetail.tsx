@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageGallery } from "@/components/ui/image-gallery";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ interface EventDetails {
   status: string;
   organizer_id: string;
   created_at: string;
+  images?: string[];
   organizer: {
     full_name: string;
     bio?: string;
@@ -596,6 +598,13 @@ const EventDetail = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Event Images Gallery */}
+                {event.images && event.images.length > 0 && (
+                  <div className="mb-6 w-full overflow-hidden">
+                    <ImageGallery images={event.images} />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="flex items-center text-muted-foreground">

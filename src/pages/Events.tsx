@@ -39,6 +39,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAvatarUrl } from "@/lib/avatar-utils";
 
 interface Event {
   id: string;
@@ -53,10 +55,12 @@ interface Event {
   budget_max?: number;
   required_topics: string[];
   status: string;
+  images?: string[];
   organizer: {
     id: string;
     full_name: string;
     location?: string;
+    avatar_url?: string;
   };
 }
 
@@ -97,6 +101,8 @@ const Events = () => {
     budget_max: "",
     required_topics: [] as string[],
   });
+  const [eventImages, setEventImages] = useState<File[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -141,7 +147,7 @@ const Events = () => {
         .select(
           `
           *,
-          organizer:profiles!organizer_id(id, full_name, location)
+          organizer:profiles!organizer_id(id, full_name, location, avatar_url)
         `
         )
         .eq("status", "open")
@@ -160,6 +166,38 @@ const Events = () => {
     }
   };
 
+  const uploadEventImages = async (
+    eventId: string,
+    images: File[]
+  ): Promise<string[]> => {
+    if (images.length === 0) return [];
+
+    const uploadedUrls: string[] = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const file = images[i];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user!.id}/${eventId}/${Date.now()}-${i}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("event-images")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        continue; // Skip this image and continue with others
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("event-images").getPublicUrl(fileName);
+
+      uploadedUrls.push(publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !userProfile) return;
@@ -176,27 +214,51 @@ const Events = () => {
 
       if (profileError) throw profileError;
 
-      // Create the event
-      const { error } = await supabase.from("events").insert({
-        organizer_id: profile.id,
-        title: eventForm.title,
-        description: eventForm.description,
-        event_type: eventForm.event_type,
-        format: eventForm.format,
-        location: eventForm.location || null,
-        date_time: new Date(eventForm.date_time).toISOString(),
-        duration_hours: parseInt(eventForm.duration_hours),
-        budget_min: eventForm.budget_min
-          ? parseInt(eventForm.budget_min) * 100
-          : null, // Convert to cents
-        budget_max: eventForm.budget_max
-          ? parseInt(eventForm.budget_max) * 100
-          : null, // Convert to cents
-        required_topics: eventForm.required_topics,
-        status: "open",
-      });
+      // Create the event first
+      const { data: eventData, error } = await supabase
+        .from("events")
+        .insert({
+          organizer_id: profile.id,
+          title: eventForm.title,
+          description: eventForm.description,
+          event_type: eventForm.event_type,
+          format: eventForm.format,
+          location: eventForm.location || null,
+          date_time: new Date(eventForm.date_time).toISOString(),
+          duration_hours: parseInt(eventForm.duration_hours),
+          budget_min: eventForm.budget_min
+            ? parseInt(eventForm.budget_min) * 100
+            : null, // Convert to cents
+          budget_max: eventForm.budget_max
+            ? parseInt(eventForm.budget_max) * 100
+            : null, // Convert to cents
+          required_topics: eventForm.required_topics,
+          status: "open",
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Upload images if any
+      let imageUrls: string[] = [];
+      if (eventImages.length > 0) {
+        setImageUploading(true);
+        imageUrls = await uploadEventImages(eventData.id, eventImages);
+
+        // Update event with image URLs
+        if (imageUrls.length > 0) {
+          const { error: updateError } = await supabase
+            .from("events")
+            .update({ images: imageUrls } as any)
+            .eq("id", eventData.id);
+
+          if (updateError) {
+            console.error("Error updating event with images:", updateError);
+          }
+        }
+        setImageUploading(false);
+      }
 
       toast({
         title: "Event created!",
@@ -216,6 +278,7 @@ const Events = () => {
         budget_max: "",
         required_topics: [],
       });
+      setEventImages([]);
       setShowCreateDialog(false);
 
       // Refresh events list
@@ -589,6 +652,74 @@ const Events = () => {
                     )}
                   </div>
 
+                  <div className="space-y-2">
+                    <Label>Event Images (Optional)</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 5) {
+                            toast({
+                              title: "Too many images",
+                              description:
+                                "You can upload maximum 5 images per event.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          setEventImages(files);
+                        }}
+                        className="hidden"
+                        id="event-images"
+                      />
+                      <label
+                        htmlFor="event-images"
+                        className="cursor-pointer flex flex-col items-center text-center"
+                      >
+                        <Plus className="h-8 w-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-600 mb-1">
+                          Click to upload event images
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          PNG, JPG, WebP up to 10MB each (max 5 images)
+                        </span>
+                      </label>
+                      {eventImages.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-600 mb-2">
+                            {eventImages.length} image(s) selected:
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {eventImages.map((file, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center space-x-2 text-xs"
+                              >
+                                <span className="truncate">{file.name}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEventImages(
+                                      eventImages.filter((_, i) => i !== index)
+                                    );
+                                  }}
+                                  className="h-4 w-4 p-0"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex space-x-3 pt-4">
                     <Button
                       type="button"
@@ -600,13 +731,13 @@ const Events = () => {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={createLoading}
+                      disabled={createLoading || imageUploading}
                       className="flex-1"
                     >
-                      {createLoading && (
+                      {(createLoading || imageUploading) && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Create Event
+                      {imageUploading ? "Uploading Images..." : "Create Event"}
                     </Button>
                   </div>
                 </form>
@@ -697,6 +828,28 @@ const Events = () => {
                       {event.description}
                     </CardDescription>
                   </CardHeader>
+
+                  {/* Event Images Preview */}
+                  {event.images && event.images.length > 0 && (
+                    <div className="px-6 pb-4">
+                      <img
+                        src={event.images[0]}
+                        alt={event.title}
+                        className="w-full h-32 object-cover rounded-md"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
+                      />
+                      {event.images.length > 1 && (
+                        <p className="text-xs text-muted-foreground mt-1 text-center">
+                          +{event.images.length - 1} more image
+                          {event.images.length > 2 ? "s" : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <CardContent className="flex-1 flex flex-col justify-between">
                     <div className="space-y-3 mb-4">
                       <div className="flex items-center text-sm text-muted-foreground">
@@ -745,11 +898,26 @@ const Events = () => {
                       )}
                     </div>
                     <div className="pt-4 border-t">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Organized by {event.organizer?.full_name}
-                        {event.organizer?.location &&
-                          ` • ${event.organizer.location}`}
-                      </p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={getAvatarUrl(event.organizer?.avatar_url)}
+                            alt={event.organizer?.full_name || "Organizer"}
+                          />
+                          <AvatarFallback className="bg-primary/10 text-xs">
+                            {event.organizer?.full_name
+                              ?.charAt(0)
+                              ?.toUpperCase() || "O"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">
+                            Organized by {event.organizer?.full_name}
+                            {event.organizer?.location &&
+                              ` • ${event.organizer.location}`}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Link>

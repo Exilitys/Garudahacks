@@ -891,6 +891,15 @@ const MyEvents = () => {
             <TabsTrigger value="confirmed">
               Confirmed Speakers ({confirmedSpeakers.length})
             </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completed Events (
+              {
+                events.filter(
+                  (e) => e.status === "completed" || e.status === "finished"
+                ).length
+              }
+              )
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="space-y-6">
@@ -1163,23 +1172,56 @@ const MyEvents = () => {
                                                     </p>
                                                   </div>
                                                 )}
-                                                {booking.speaker.hourly_rate &&
+                                                {(booking.speaker.hourly_rate ||
+                                                  booking.agreed_rate) &&
                                                   booking.event
                                                     .duration_hours && (
                                                     <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                                                       <div className="text-sm space-y-1">
-                                                        <div className="flex justify-between">
-                                                          <span>
-                                                            Hourly Rate:
-                                                          </span>
-                                                          <span>
-                                                            $
-                                                            {(booking.speaker
-                                                              .hourly_rate ||
-                                                              0) / 100}
-                                                            /hour
-                                                          </span>
-                                                        </div>
+                                                        {booking.agreed_rate &&
+                                                        booking.agreed_rate >
+                                                          0 ? (
+                                                          <>
+                                                            <div className="flex justify-between">
+                                                              <span className="text-blue-600 font-medium">
+                                                                Proposed Rate:
+                                                              </span>
+                                                              <span className="text-blue-600 font-medium">
+                                                                $
+                                                                {booking.agreed_rate /
+                                                                  100}
+                                                                /hour
+                                                              </span>
+                                                            </div>
+                                                            <div className="flex justify-between text-gray-500">
+                                                              <span>
+                                                                Speaker's
+                                                                Default Rate:
+                                                              </span>
+                                                              <span>
+                                                                $
+                                                                {(booking
+                                                                  .speaker
+                                                                  .hourly_rate ||
+                                                                  0) / 100}
+                                                                /hour
+                                                              </span>
+                                                            </div>
+                                                          </>
+                                                        ) : (
+                                                          <div className="flex justify-between">
+                                                            <span>
+                                                              Hourly Rate:
+                                                            </span>
+                                                            <span>
+                                                              $
+                                                              {(booking.speaker
+                                                                .hourly_rate ||
+                                                                0) / 100}
+                                                              /hour
+                                                            </span>
+                                                          </div>
+                                                        )}
                                                         <div className="flex justify-between">
                                                           <span>
                                                             Event Duration:
@@ -1196,16 +1238,36 @@ const MyEvents = () => {
                                                           <span>
                                                             Total Payment:
                                                           </span>
-                                                          <span>
+                                                          <span
+                                                            className={
+                                                              booking.agreed_rate &&
+                                                              booking.agreed_rate >
+                                                                0
+                                                                ? "text-blue-600"
+                                                                : ""
+                                                            }
+                                                          >
                                                             $
-                                                            {((booking.speaker
-                                                              .hourly_rate ||
-                                                              0) *
+                                                            {((booking.agreed_rate &&
+                                                            booking.agreed_rate >
+                                                              0
+                                                              ? booking.agreed_rate
+                                                              : booking.speaker
+                                                                  .hourly_rate ||
+                                                                0) *
                                                               booking.event
                                                                 .duration_hours) /
                                                               100}
                                                           </span>
                                                         </div>
+                                                        {booking.agreed_rate &&
+                                                          booking.agreed_rate >
+                                                            0 && (
+                                                            <div className="text-xs text-blue-600 mt-1">
+                                                              Using speaker's
+                                                              proposed rate
+                                                            </div>
+                                                          )}
                                                       </div>
                                                     </div>
                                                   )}
@@ -1756,6 +1818,176 @@ const MyEvents = () => {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="completed" className="space-y-6">
+            {/* Completed Events Section */}
+            {(() => {
+              const completedEvents = events.filter(
+                (event) =>
+                  event.status === "completed" || event.status === "finished"
+              );
+
+              return completedEvents.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    No completed events
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Your completed events will appear here once they are
+                    finished.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        Completed Events
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Events that have been successfully completed
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="text-sm">
+                      {completedEvents.length} completed
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {completedEvents.map((event) => (
+                      <Card key={event.id} className="h-full flex flex-col">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <CardTitle className="text-lg">
+                                {event.title}
+                              </CardTitle>
+                              <div className="flex items-center space-x-2">
+                                <Badge
+                                  variant={
+                                    event.status === "finished"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                  className="capitalize"
+                                >
+                                  {event.status === "finished"
+                                    ? "Finished"
+                                    : "Completed"}
+                                </Badge>
+                                <Badge variant="outline" className="capitalize">
+                                  {event.event_type}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="flex-1 flex flex-col justify-between">
+                          <div className="space-y-3 mb-4">
+                            <CardDescription className="line-clamp-2">
+                              {event.description}
+                            </CardDescription>
+
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div className="flex items-center">
+                                <Calendar className="mr-2 h-4 w-4" />
+                                {new Date(event.date_time).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    weekday: "short",
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </div>
+                              {event.location && (
+                                <div className="flex items-center">
+                                  <MapPin className="mr-2 h-4 w-4" />
+                                  {event.location}
+                                </div>
+                              )}
+                              <div className="flex items-center">
+                                <Clock className="mr-2 h-4 w-4" />
+                                {event.duration_hours} hour
+                                {event.duration_hours !== 1 ? "s" : ""}
+                              </div>
+                              {(event.budget_min || event.budget_max) && (
+                                <div className="flex items-center">
+                                  <DollarSign className="mr-2 h-4 w-4" />
+                                  {event.budget_min && event.budget_max
+                                    ? `$${event.budget_min} - $${event.budget_max}`
+                                    : event.budget_min
+                                    ? `From $${event.budget_min}`
+                                    : `Up to $${event.budget_max}`}
+                                </div>
+                              )}
+                            </div>
+
+                            {event.required_topics.length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium mb-2">
+                                  Required Topics:
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {event.required_topics
+                                    .slice(0, 3)
+                                    .map((topic, index) => (
+                                      <Badge
+                                        key={index}
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {topic}
+                                      </Badge>
+                                    ))}
+                                  {event.required_topics.length > 3 && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      +{event.required_topics.length - 3} more
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Completed on:
+                              </span>
+                              <span className="font-medium">
+                                {new Date(event.date_time).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => navigate(`/events/${event.id}`)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </div>

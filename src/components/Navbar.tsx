@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,17 +18,51 @@ import {
   Mic2,
   Mail,
 } from "lucide-react";
+import { getAvatarUrl } from "@/lib/avatar-utils";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [userProfile, setUserProfile] = useState<{ user_type: string } | null>(
-    null
-  );
+  const [userProfile, setUserProfile] = useState<{
+    user_type: string;
+    avatar_url?: string;
+    full_name?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchUserProfile();
+
+      // Subscribe to profile updates for real-time avatar changes
+      const profileSubscription = supabase
+        .channel("profile_changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            console.log("Profile updated, refreshing navbar...");
+            fetchUserProfile();
+          }
+        )
+        .subscribe();
+
+      // Listen for custom avatar update events
+      const handleAvatarUpdate = () => {
+        console.log("Avatar updated event received, refreshing navbar...");
+        fetchUserProfile();
+      };
+
+      window.addEventListener("avatarUpdated", handleAvatarUpdate);
+
+      return () => {
+        profileSubscription.unsubscribe();
+        window.removeEventListener("avatarUpdated", handleAvatarUpdate);
+      };
     } else {
       setUserProfile(null);
     }
@@ -40,7 +74,7 @@ const Navbar = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_type")
+        .select("user_type, avatar_url, full_name")
         .eq("user_id", user.id)
         .single();
 
@@ -121,9 +155,17 @@ const Navbar = () => {
                       variant="ghost"
                       className="relative h-8 w-8 rounded-full"
                     >
-                      <Avatar className="h-8 w-8">
+                      <Avatar
+                        key={userProfile?.avatar_url || user.id}
+                        className="h-8 w-8"
+                      >
+                        <AvatarImage
+                          src={getAvatarUrl(userProfile?.avatar_url, user.id)}
+                          alt={userProfile?.full_name || user.email}
+                        />
                         <AvatarFallback>
-                          {user.email?.charAt(0).toUpperCase()}
+                          {userProfile?.full_name?.charAt(0).toUpperCase() ||
+                            user.email?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                     </Button>

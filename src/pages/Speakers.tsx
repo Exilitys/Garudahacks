@@ -27,8 +27,8 @@ import {
   Search,
   Verified,
   Award,
-  MessageSquare,
 } from "lucide-react";
+import { getAvatarUrl } from "@/lib/avatar-utils";
 
 interface Speaker {
   id: string;
@@ -50,16 +50,6 @@ interface Speaker {
       name: string;
     };
   }>;
-  feedback?: Array<{
-    id: string;
-    reviewer_notes: string;
-    event: {
-      title: string;
-      date_time: string;
-    };
-    rating?: number;
-    source: "booking" | "review";
-  }>;
 }
 
 const Speakers = () => {
@@ -72,6 +62,60 @@ const Speakers = () => {
 
   useEffect(() => {
     fetchSpeakers();
+
+    // Set up real-time subscription to speakers table
+    // This will refresh the speakers list when speaker statistics are updated
+    const speakersSubscription = supabase
+      .channel("speakers-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "speakers",
+          filter: "total_talks=neq.null",
+        },
+        () => {
+          console.log(
+            "Speaker statistics updated, refreshing speakers list..."
+          );
+          fetchSpeakers();
+        }
+      )
+      .subscribe();
+
+    // Add subscription for profile updates (including avatar changes)
+    const profilesSubscription = supabase
+      .channel("profiles-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+        },
+        () => {
+          console.log(
+            "Profile updated (including avatar), refreshing speakers list..."
+          );
+          fetchSpeakers();
+        }
+      )
+      .subscribe();
+
+    // Listen for custom avatar update events
+    const handleAvatarUpdate = () => {
+      console.log("Avatar updated event received, refreshing speakers list...");
+      fetchSpeakers();
+    };
+
+    window.addEventListener("avatarUpdated", handleAvatarUpdate);
+
+    return () => {
+      speakersSubscription.unsubscribe();
+      profilesSubscription.unsubscribe();
+      window.removeEventListener("avatarUpdated", handleAvatarUpdate);
+    };
   }, []);
 
   const fetchSpeakers = async () => {
@@ -89,18 +133,7 @@ const Speakers = () => {
 
       if (error) throw error;
 
-      // Fetch feedback for each speaker
-      const speakersWithFeedback = await Promise.all(
-        (data || []).map(async (speaker) => {
-          const feedbackData = await fetchSpeakerFeedback(speaker.id);
-          return {
-            ...speaker,
-            feedback: feedbackData,
-          };
-        })
-      );
-
-      setSpeakers(speakersWithFeedback);
+      setSpeakers(data || []);
     } catch (error) {
       toast({
         title: "Error loading speakers",
@@ -109,65 +142,6 @@ const Speakers = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchSpeakerFeedback = async (speakerId: string) => {
-    try {
-      // Get feedback from bookings table
-      const { data: bookingsFeedback, error: bookingsError } = await supabase
-        .from("bookings")
-        .select(
-          `
-          id,
-          reviewer_notes,
-          event:events(title, date_time)
-        `
-        )
-        .eq("speaker_id", speakerId)
-        .not("reviewer_notes", "is", null)
-        .limit(3); // Limit to 3 most recent feedback items
-
-      if (bookingsError) throw bookingsError;
-
-      // Get feedback from reviews table
-      const { data: reviewsFeedback, error: reviewsError } = await supabase
-        .from("reviews")
-        .select(
-          `
-          id,
-          comment,
-          rating,
-          booking:bookings(event:events(title, date_time))
-        `
-        )
-        .eq("reviewee_id", speakerId)
-        .not("comment", "is", null)
-        .limit(3);
-
-      if (reviewsError) throw reviewsError;
-
-      // Combine and format feedback
-      const combinedFeedback = [
-        ...(bookingsFeedback || []).map((item) => ({
-          id: item.id,
-          reviewer_notes: item.reviewer_notes,
-          event: item.event,
-          source: "booking" as const,
-        })),
-        ...(reviewsFeedback || []).map((item) => ({
-          id: item.id,
-          reviewer_notes: item.comment,
-          event: item.booking?.event,
-          rating: item.rating,
-          source: "review" as const,
-        })),
-      ];
-
-      return combinedFeedback.slice(0, 3); // Return top 3 feedback items
-    } catch (error) {
-      console.error("Error fetching speaker feedback:", error);
-      return [];
     }
   };
 
@@ -283,8 +257,17 @@ const Speakers = () => {
                 <Link to={`/speakers/${speaker.id}`} className="flex-1">
                   <CardHeader className="hover:bg-gray-50 transition-colors">
                     <div className="flex items-start space-x-4">
-                      <Avatar className="h-16 w-16">
-                        <AvatarImage src={speaker.profile?.avatar_url} />
+                      <Avatar
+                        key={speaker.profile?.avatar_url || speaker.id}
+                        className="h-16 w-16"
+                      >
+                        <AvatarImage
+                          src={getAvatarUrl(
+                            speaker.profile?.avatar_url,
+                            speaker.id
+                          )}
+                          alt={speaker.profile?.full_name}
+                        />
                         <AvatarFallback className="text-lg">
                           {speaker.profile?.full_name?.charAt(0).toUpperCase()}
                         </AvatarFallback>
@@ -371,57 +354,6 @@ const Speakers = () => {
                               <Badge variant="outline" className="text-xs">
                                 +{speaker.topics.length - 4} more
                               </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Recent Feedback */}
-                      {speaker.feedback && speaker.feedback.length > 0 && (
-                        <div>
-                          <div className="flex items-center mb-2">
-                            <MessageSquare className="mr-1 h-3 w-3" />
-                            <p className="text-sm font-medium">
-                              Recent Feedback:
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            {speaker.feedback
-                              .slice(0, 2)
-                              .map((feedback, index) => (
-                                <div
-                                  key={index}
-                                  className="bg-gray-50 p-2 rounded-md"
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {feedback.source === "review"
-                                        ? "Review"
-                                        : "Event Feedback"}
-                                    </Badge>
-                                    {feedback.rating && (
-                                      <div className="flex items-center">
-                                        {renderStars(feedback.rating)}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground line-clamp-2">
-                                    {feedback.reviewer_notes}
-                                  </p>
-                                  {feedback.event && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Event: {feedback.event.title}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            {speaker.feedback.length > 2 && (
-                              <p className="text-xs text-muted-foreground text-center">
-                                +{speaker.feedback.length - 2} more reviews
-                              </p>
                             )}
                           </div>
                         </div>

@@ -43,7 +43,7 @@ import {
 
 interface BookingDetails {
   id: string;
-  agreed_rate: number;
+  agreed_rate: number | null;
   payment_amount?: number;
   status: string;
   speaker: {
@@ -137,11 +137,12 @@ const PaymentPage = () => {
     setProcessing(true);
 
     try {
-      // Calculate the actual payment amount
+      // Calculate the actual payment amount - prioritize proposed rate
       const calculatedAmount =
-        (booking.speaker.hourly_rate || 0) * booking.event.duration_hours;
-      const finalPaymentAmount =
-        booking.payment_amount || calculatedAmount || booking.agreed_rate;
+        booking.agreed_rate !== null && booking.agreed_rate > 0
+          ? booking.agreed_rate * booking.event.duration_hours
+          : (booking.speaker.hourly_rate || 0) * booking.event.duration_hours;
+      const finalPaymentAmount = booking.payment_amount || calculatedAmount;
 
       // Simulate payment processing delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -236,11 +237,16 @@ const PaymentPage = () => {
     );
   }
 
-  // Calculate payment amount: hourly_rate × duration_hours
+  // Calculate payment amount: prioritize agreed_rate (proposed rate) over default hourly_rate
   const calculatedAmount =
-    (booking.speaker.hourly_rate || 0) * booking.event.duration_hours;
-  const paymentAmount =
-    booking.payment_amount || calculatedAmount || booking.agreed_rate;
+    booking.agreed_rate !== null && booking.agreed_rate > 0
+      ? booking.agreed_rate * booking.event.duration_hours
+      : (booking.speaker.hourly_rate || 0) * booking.event.duration_hours;
+
+  const paymentAmount = calculatedAmount;
+
+  const isUsingProposedRate =
+    booking.agreed_rate !== null && booking.agreed_rate > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -325,12 +331,31 @@ const PaymentPage = () => {
               <div className="space-y-3">
                 <h4 className="font-medium">Payment Calculation</h4>
                 <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Hourly Rate</span>
-                    <span>
-                      ${(booking.speaker.hourly_rate || 0) / 100}/hour
-                    </span>
-                  </div>
+                  {isUsingProposedRate ? (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-blue-600 font-medium">
+                          Proposed Rate
+                        </span>
+                        <span className="text-blue-600 font-medium">
+                          ${(booking.agreed_rate! / 100).toFixed(2)}/hour
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>Speaker's Default Rate</span>
+                        <span>
+                          ${(booking.speaker.hourly_rate || 0) / 100}/hour
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Hourly Rate</span>
+                      <span>
+                        ${(booking.speaker.hourly_rate || 0) / 100}/hour
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span>Event Duration</span>
                     <span>{booking.event.duration_hours} hours</span>
@@ -338,8 +363,19 @@ const PaymentPage = () => {
                   <Separator />
                   <div className="flex items-center justify-between font-medium">
                     <span>Total Amount</span>
-                    <span className="text-lg">${paymentAmount / 100}</span>
+                    <span
+                      className={`text-lg ${
+                        isUsingProposedRate ? "text-blue-600" : ""
+                      }`}
+                    >
+                      ${paymentAmount / 100}
+                    </span>
                   </div>
+                  {isUsingProposedRate && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      Using speaker's proposed rate
+                    </div>
+                  )}
                 </div>
               </div>
 
