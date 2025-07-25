@@ -367,7 +367,7 @@ const Profile = () => {
 
   const formatRate = (rate?: number) => {
     if (!rate) return "Not specified";
-    return `$${rate / 100}/hour`;
+    return `Rp${rate.toLocaleString("id-ID")}/hour`;
   };
 
   const renderStars = (rating: number) => {
@@ -715,13 +715,13 @@ const Profile = () => {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="hourly_rate">Hourly Rate (USD)</Label>
+                          <Label htmlFor="hourly_rate">Hourly Rate (IDR)</Label>
                           <Input
                             id="hourly_rate"
                             type="number"
                             value={
                               speakerProfile.hourly_rate
-                                ? speakerProfile.hourly_rate / 100
+                                ? speakerProfile.hourly_rate
                                 : ""
                             }
                             onChange={(e) =>
@@ -729,12 +729,12 @@ const Profile = () => {
                               setSpeakerProfile({
                                 ...speakerProfile,
                                 hourly_rate: e.target.value
-                                  ? parseInt(e.target.value) * 100
+                                  ? parseInt(e.target.value)
                                   : undefined,
                               })
                             }
                             disabled={!editMode}
-                            placeholder="e.g., 500"
+                            placeholder="e.g., 750000"
                           />
                         </div>
                       </div>

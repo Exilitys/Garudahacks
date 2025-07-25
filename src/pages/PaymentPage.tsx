@@ -169,9 +169,9 @@ const PaymentPage = () => {
 
       toast({
         title: "Payment successful!",
-        description: `Payment of $${
-          finalPaymentAmount / 100
-        } has been processed. Reference: ${paymentReference}`,
+        description: `Payment of Rp${finalPaymentAmount.toLocaleString(
+          "id-ID"
+        )} has been processed. Reference: ${paymentReference}`,
       });
 
       setShowConfirmDialog(false);
@@ -338,13 +338,17 @@ const PaymentPage = () => {
                           Proposed Rate
                         </span>
                         <span className="text-blue-600 font-medium">
-                          ${(booking.agreed_rate! / 100).toFixed(2)}/hour
+                          Rp{booking.agreed_rate!.toLocaleString("id-ID")}/hour
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <span>Speaker's Default Rate</span>
                         <span>
-                          ${(booking.speaker.hourly_rate || 0) / 100}/hour
+                          Rp
+                          {(booking.speaker.hourly_rate || 0).toLocaleString(
+                            "id-ID"
+                          )}
+                          /hour
                         </span>
                       </div>
                     </>
@@ -352,7 +356,11 @@ const PaymentPage = () => {
                     <div className="flex items-center justify-between text-sm">
                       <span>Hourly Rate</span>
                       <span>
-                        ${(booking.speaker.hourly_rate || 0) / 100}/hour
+                        Rp
+                        {(booking.speaker.hourly_rate || 0).toLocaleString(
+                          "id-ID"
+                        )}
+                        /hour
                       </span>
                     </div>
                   )}
@@ -368,7 +376,7 @@ const PaymentPage = () => {
                         isUsingProposedRate ? "text-blue-600" : ""
                       }`}
                     >
-                      ${paymentAmount / 100}
+                      Rp{paymentAmount.toLocaleString("id-ID")}
                     </span>
                   </div>
                   {isUsingProposedRate && (
@@ -554,7 +562,7 @@ const PaymentPage = () => {
                         disabled={!paymentForm.payment_method}
                       >
                         <CreditCard className="mr-2 h-4 w-4" />
-                        Pay ${paymentAmount / 100}
+                        Pay Rp{paymentAmount.toLocaleString("id-ID")}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -569,7 +577,7 @@ const PaymentPage = () => {
                           <div className="flex justify-between items-center mb-2">
                             <span className="font-medium">Amount</span>
                             <span className="text-lg font-bold">
-                              ${paymentAmount / 100}
+                              Rp{paymentAmount.toLocaleString("id-ID")}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">

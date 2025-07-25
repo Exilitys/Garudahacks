@@ -58,6 +58,7 @@ const Speakers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLevel, setFilterLevel] = useState("all");
   const [filterAvailable, setFilterAvailable] = useState("all");
+  const [filterPriceRange, setFilterPriceRange] = useState("all");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -161,12 +162,36 @@ const Speakers = () => {
       (filterAvailable === "available" && speaker.available) ||
       (filterAvailable === "unavailable" && !speaker.available);
 
-    return matchesSearch && matchesLevel && matchesAvailable;
+    // Price range filtering
+    const matchesPriceRange = (() => {
+      if (filterPriceRange === "all") return true;
+      if (!speaker.hourly_rate) return filterPriceRange === "not-specified";
+
+      const rate = speaker.hourly_rate;
+      switch (filterPriceRange) {
+        case "0-500000":
+          return rate <= 500000;
+        case "500000-1000000":
+          return rate > 500000 && rate <= 1000000;
+        case "1000000-2000000":
+          return rate > 1000000 && rate <= 2000000;
+        case "2000000+":
+          return rate > 2000000;
+        case "not-specified":
+          return false;
+        default:
+          return true;
+      }
+    })();
+
+    return (
+      matchesSearch && matchesLevel && matchesAvailable && matchesPriceRange
+    );
   });
 
   const formatRate = (rate?: number) => {
     if (!rate) return "Rate not specified";
-    return `$${rate / 100}/hour`;
+    return `Rp${rate.toLocaleString("id-ID")}/hour`;
   };
 
   const renderStars = (rating: number) => {
@@ -205,7 +230,7 @@ const Speakers = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -234,6 +259,19 @@ const Speakers = () => {
               <SelectItem value="all">All Speakers</SelectItem>
               <SelectItem value="available">Available</SelectItem>
               <SelectItem value="unavailable">Not Available</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterPriceRange} onValueChange={setFilterPriceRange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Price Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Prices</SelectItem>
+              <SelectItem value="0-500000">Up to Rp500K</SelectItem>
+              <SelectItem value="500000-1000000">Rp500K - Rp1M</SelectItem>
+              <SelectItem value="1000000-2000000">Rp1M - Rp2M</SelectItem>
+              <SelectItem value="2000000+">Rp2M+</SelectItem>
+              <SelectItem value="not-specified">Price not specified</SelectItem>
             </SelectContent>
           </Select>
           <div className="text-sm text-muted-foreground flex items-center">

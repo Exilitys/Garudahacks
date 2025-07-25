@@ -105,8 +105,8 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <Mic2 className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold">SpeakBridge</span>
+              <img src="/logo.svg" alt="SpeakBridge Logo" className="h-8 w-8" />
+              <span className="text-xl font-bold">TemuBicara</span>
             </Link>
           </div>
 

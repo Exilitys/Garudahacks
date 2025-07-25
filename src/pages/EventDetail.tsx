@@ -377,7 +377,7 @@ const EventDetail = () => {
           organizer_id: organizerData?.id || event.organizer_id, // Fallback to event's organizer_id
           message: applicationForm.message || null,
           agreed_rate: applicationForm.proposed_rate
-            ? parseInt(applicationForm.proposed_rate) * 100
+            ? parseInt(applicationForm.proposed_rate)
             : null,
         })
         .select("*")
@@ -443,9 +443,12 @@ const EventDetail = () => {
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return "Budget not specified";
-    if (min && max) return `$${min / 100} - $${max / 100}`;
-    if (min) return `From $${min / 100}`;
-    if (max) return `Up to $${max / 100}`;
+    if (min && max)
+      return `Rp${min.toLocaleString("id-ID")} - Rp${max.toLocaleString(
+        "id-ID"
+      )}`;
+    if (min) return `From Rp${min.toLocaleString("id-ID")}`;
+    if (max) return `Up to Rp${max.toLocaleString("id-ID")}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -963,7 +966,11 @@ const EventDetail = () => {
                               )}
                               {application.proposed_rate && (
                                 <span>
-                                  ${application.proposed_rate / 100}/hour
+                                  Rp
+                                  {application.proposed_rate.toLocaleString(
+                                    "id-ID"
+                                  )}
+                                  /hour
                                 </span>
                               )}
                             </div>
@@ -1107,7 +1114,13 @@ const EventDetail = () => {
                                 </span>
                               )}
                               {speaker.proposed_rate && (
-                                <span>${speaker.proposed_rate / 100}/hour</span>
+                                <span>
+                                  Rp
+                                  {speaker.proposed_rate.toLocaleString(
+                                    "id-ID"
+                                  )}
+                                  /hour
+                                </span>
                               )}
                             </div>
                             {speaker.message && (

@@ -63,7 +63,7 @@ const ProfileSetupHandler: React.FC = () => {
                   profile_id: profileResult.data.id,
                   experience_level: data.speakerForm.experienceLevel,
                   hourly_rate: data.speakerForm.hourlyRate
-                    ? parseInt(data.speakerForm.hourlyRate) * 100
+                    ? parseInt(data.speakerForm.hourlyRate)
                     : null,
                   occupation: data.speakerForm.occupation || null,
                   company: data.speakerForm.company || null,

@@ -219,7 +219,8 @@ const SpeakerPaymentNotifications = () => {
                     )}
                     <div className="flex items-center text-sm text-muted-foreground">
                       <DollarSign className="mr-2 h-3 w-3" />
-                      Speaker fee: ${booking.agreed_rate / 100}
+                      Speaker fee: Rp
+                      {booking.agreed_rate.toLocaleString("id-ID")}
                     </div>
                   </div>
                 </div>

@@ -446,9 +446,12 @@ const MyEvents = () => {
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return "Budget not specified";
-    if (min && max) return `$${min / 100} - $${max / 100}`;
-    if (min) return `From $${min / 100}`;
-    if (max) return `Up to $${max / 100}`;
+    if (min && max)
+      return `Rp${min.toLocaleString("id-ID")} - Rp${max.toLocaleString(
+        "id-ID"
+      )}`;
+    if (min) return `From Rp${min.toLocaleString("id-ID")}`;
+    if (max) return `Up to Rp${max.toLocaleString("id-ID")}`;
     return "Budget not specified";
   };
 
@@ -518,11 +521,11 @@ const MyEvents = () => {
         date_time: new Date(eventForm.date_time).toISOString(),
         duration_hours: parseInt(eventForm.duration_hours),
         budget_min: eventForm.budget_min
-          ? parseInt(eventForm.budget_min) * 100
-          : null, // Convert to cents
+          ? parseInt(eventForm.budget_min)
+          : null, // Store in Rupiah directly
         budget_max: eventForm.budget_max
-          ? parseInt(eventForm.budget_max) * 100
-          : null, // Convert to cents
+          ? parseInt(eventForm.budget_max)
+          : null, // Store in Rupiah directly
         required_topics: eventForm.required_topics,
         status: "open",
       });
@@ -784,7 +787,7 @@ const MyEvents = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="budget-min">Budget Min (USD)</Label>
+                        <Label htmlFor="budget-min">Budget Min (IDR)</Label>
                         <Input
                           id="budget-min"
                           type="number"
@@ -801,7 +804,7 @@ const MyEvents = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="budget-max">Budget Max (USD)</Label>
+                        <Label htmlFor="budget-max">Budget Max (IDR)</Label>
                         <Input
                           id="budget-max"
                           type="number"
@@ -1187,9 +1190,10 @@ const MyEvents = () => {
                                                                 Proposed Rate:
                                                               </span>
                                                               <span className="text-blue-600 font-medium">
-                                                                $
-                                                                {booking.agreed_rate /
-                                                                  100}
+                                                                Rp
+                                                                {booking.agreed_rate.toLocaleString(
+                                                                  "id-ID"
+                                                                )}
                                                                 /hour
                                                               </span>
                                                             </div>
@@ -1199,11 +1203,15 @@ const MyEvents = () => {
                                                                 Default Rate:
                                                               </span>
                                                               <span>
-                                                                $
-                                                                {(booking
-                                                                  .speaker
-                                                                  .hourly_rate ||
-                                                                  0) / 100}
+                                                                Rp
+                                                                {(
+                                                                  booking
+                                                                    .speaker
+                                                                    .hourly_rate ||
+                                                                  0
+                                                                ).toLocaleString(
+                                                                  "id-ID"
+                                                                )}
                                                                 /hour
                                                               </span>
                                                             </div>
@@ -1214,10 +1222,14 @@ const MyEvents = () => {
                                                               Hourly Rate:
                                                             </span>
                                                             <span>
-                                                              $
-                                                              {(booking.speaker
-                                                                .hourly_rate ||
-                                                                0) / 100}
+                                                              Rp
+                                                              {(
+                                                                booking.speaker
+                                                                  .hourly_rate ||
+                                                                0
+                                                              ).toLocaleString(
+                                                                "id-ID"
+                                                              )}
                                                               /hour
                                                             </span>
                                                           </div>
@@ -1247,17 +1259,21 @@ const MyEvents = () => {
                                                                 : ""
                                                             }
                                                           >
-                                                            $
-                                                            {((booking.agreed_rate &&
-                                                            booking.agreed_rate >
-                                                              0
-                                                              ? booking.agreed_rate
-                                                              : booking.speaker
-                                                                  .hourly_rate ||
-                                                                0) *
+                                                            Rp
+                                                            {(
+                                                              (booking.agreed_rate &&
+                                                              booking.agreed_rate >
+                                                                0
+                                                                ? booking.agreed_rate
+                                                                : booking
+                                                                    .speaker
+                                                                    .hourly_rate ||
+                                                                  0) *
                                                               booking.event
-                                                                .duration_hours) /
-                                                              100}
+                                                                .duration_hours
+                                                            ).toLocaleString(
+                                                              "id-ID"
+                                                            )}
                                                           </span>
                                                         </div>
                                                         {booking.agreed_rate &&
@@ -1443,7 +1459,10 @@ const MyEvents = () => {
                                                     <span className="font-medium">
                                                       Agreed Rate:{" "}
                                                     </span>
-                                                    ${booking.agreed_rate / 100}
+                                                    Rp
+                                                    {booking.agreed_rate.toLocaleString(
+                                                      "id-ID"
+                                                    )}
                                                     /hour
                                                   </div>
                                                 )}
@@ -1638,7 +1657,8 @@ const MyEvents = () => {
                               <span className="font-medium">
                                 Proposed Rate:{" "}
                               </span>
-                              ${booking.agreed_rate / 100}/hour
+                              Rp{booking.agreed_rate.toLocaleString("id-ID")}
+                              /hour
                             </div>
                           )}
                           <div className="flex space-x-2 mt-4">
@@ -1780,7 +1800,8 @@ const MyEvents = () => {
                           {booking.agreed_rate && (
                             <div className="mt-2 text-sm">
                               <span className="font-medium">Agreed Rate: </span>
-                              ${booking.agreed_rate / 100}/hour
+                              Rp{booking.agreed_rate.toLocaleString("id-ID")}
+                              /hour
                             </div>
                           )}
                           <div className="flex space-x-2 mt-4">
@@ -1921,10 +1942,18 @@ const MyEvents = () => {
                                 <div className="flex items-center">
                                   <DollarSign className="mr-2 h-4 w-4" />
                                   {event.budget_min && event.budget_max
-                                    ? `$${event.budget_min} - $${event.budget_max}`
+                                    ? `Rp${event.budget_min.toLocaleString(
+                                        "id-ID"
+                                      )} - Rp${event.budget_max.toLocaleString(
+                                        "id-ID"
+                                      )}`
                                     : event.budget_min
-                                    ? `From $${event.budget_min}`
-                                    : `Up to $${event.budget_max}`}
+                                    ? `From Rp${event.budget_min.toLocaleString(
+                                        "id-ID"
+                                      )}`
+                                    : `Up to Rp${event.budget_max.toLocaleString(
+                                        "id-ID"
+                                      )}`}
                                 </div>
                               )}
                             </div>

@@ -412,7 +412,7 @@ const SpeakerDetail = () => {
 
   const formatRate = (rate?: number) => {
     if (!rate) return "Rate not specified";
-    return `$${rate / 100}/hour`;
+    return `Rp${rate.toLocaleString("id-ID")}/hour`;
   };
 
   const renderStars = (rating: number) => {
@@ -504,7 +504,7 @@ const SpeakerDetail = () => {
         organizer_id: profileData.id,
         message: inviteForm.message || null,
         proposed_rate: inviteForm.offered_rate
-          ? parseInt(inviteForm.offered_rate) * 100
+          ? parseInt(inviteForm.offered_rate)
           : null,
       });
 
@@ -775,7 +775,7 @@ const SpeakerDetail = () => {
 
                           <div className="space-y-2">
                             <Label htmlFor="offered-rate">
-                              Offered Rate (USD/hour)
+                              Offered Rate (IDR/hour)
                             </Label>
                             <Input
                               id="offered-rate"
@@ -790,8 +790,8 @@ const SpeakerDetail = () => {
                               }
                               placeholder={`e.g., ${
                                 speaker.hourly_rate
-                                  ? speaker.hourly_rate / 100
-                                  : "500"
+                                  ? speaker.hourly_rate.toLocaleString("id-ID")
+                                  : "750000"
                               }`}
                             />
                           </div>

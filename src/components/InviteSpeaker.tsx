@@ -95,7 +95,8 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
       if (!tableExists) {
         toast({
           title: "Database not ready",
-          description: "The invitation system is not yet set up. Please contact support.",
+          description:
+            "The invitation system is not yet set up. Please contact support.",
           variant: "destructive",
         });
         return;
@@ -156,7 +157,8 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
       console.log("Missing data:", { selectedSpeaker, organizerProfile });
       toast({
         title: "Missing information",
-        description: "Please ensure you're logged in and have selected a speaker",
+        description:
+          "Please ensure you're logged in and have selected a speaker",
         variant: "destructive",
       });
       return;
@@ -164,8 +166,11 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
 
     setLoading(true);
     try {
-      console.log("Checking existing invitation for:", { eventId, speakerId: selectedSpeaker.id });
-      
+      console.log("Checking existing invitation for:", {
+        eventId,
+        speakerId: selectedSpeaker.id,
+      });
+
       // First check if speaker is already invited
       const { data: existingInvitation } = await checkExistingInvitation(
         eventId,
@@ -194,7 +199,7 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
         speaker_id: selectedSpeaker.id,
         message: invitationForm.message || null,
         proposed_rate: invitationForm.proposed_rate
-          ? parseInt(invitationForm.proposed_rate) * 100
+          ? parseInt(invitationForm.proposed_rate)
           : null,
         expires_at: expiresAt.toISOString(),
       };
@@ -243,7 +248,7 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
 
   const formatRate = (rate: number | null) => {
     if (!rate) return "Rate not specified";
-    return `$${rate}/hour`;
+    return `Rp${rate.toLocaleString("id-ID")}/hour`;
   };
 
   return (

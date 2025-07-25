@@ -158,7 +158,7 @@ export default function SpeakerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${(stats.total_earnings / 100).toFixed(2)}
+              Rp{stats.total_earnings.toLocaleString("id-ID")}
             </div>
             <p className="text-xs text-muted-foreground">
               From completed events
@@ -268,20 +268,18 @@ export default function SpeakerDashboard() {
                 Total Released Payments
               </span>
               <span className="font-bold text-green-600">
-                ${(stats.total_released_payments / 100).toFixed(2)}
+                Rp{stats.total_released_payments.toLocaleString("id-ID")}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Average per Event</span>
               <span className="font-medium">
-                $
+                Rp
                 {stats.total_events_completed > 0
                   ? (
-                      stats.total_earnings /
-                      stats.total_events_completed /
-                      100
-                    ).toFixed(2)
-                  : "0.00"}
+                      stats.total_earnings / stats.total_events_completed
+                    ).toLocaleString("id-ID")
+                  : "0"}
               </span>
             </div>
             {stats.total_ratings > 0 && (
@@ -317,7 +315,7 @@ export default function SpeakerDashboard() {
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <p className="text-2xl font-bold text-green-600">
-                  ${(stats.total_earnings / 100).toFixed(0)}
+                  Rp{stats.total_earnings.toLocaleString("id-ID")}
                 </p>
                 <p className="text-sm text-gray-600">Total Earned</p>
               </div>

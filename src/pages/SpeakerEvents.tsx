@@ -214,9 +214,12 @@ const SpeakerEvents = () => {
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return "Budget not specified";
-    if (min && max) return `$${min / 100} - $${max / 100}`;
-    if (min) return `From $${min / 100}`;
-    if (max) return `Up to $${max / 100}`;
+    if (min && max)
+      return `Rp${min.toLocaleString("id-ID")} - Rp${max.toLocaleString(
+        "id-ID"
+      )}`;
+    if (min) return `From Rp${min.toLocaleString("id-ID")}`;
+    if (max) return `Up to Rp${max.toLocaleString("id-ID")}`;
   };
 
   const getStatusBadge = (status: string) => {
@@ -553,7 +556,10 @@ const SpeakerEvents = () => {
                                 Proposed Rate
                               </p>
                               <p className="text-2xl font-bold text-primary">
-                                ${application.agreed_rate / 100}
+                                Rp
+                                {application.agreed_rate.toLocaleString(
+                                  "id-ID"
+                                )}
                                 <span className="text-sm text-muted-foreground">
                                   /hour
                                 </span>
@@ -735,7 +741,10 @@ const SpeakerEvents = () => {
                                 Agreed Rate
                               </p>
                               <p className="text-2xl font-bold text-green-800">
-                                ${application.agreed_rate / 100}
+                                Rp
+                                {application.agreed_rate.toLocaleString(
+                                  "id-ID"
+                                )}
                                 <span className="text-sm">/hour</span>
                               </p>
                             </div>

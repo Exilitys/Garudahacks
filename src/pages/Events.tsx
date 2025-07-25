@@ -151,6 +151,7 @@ const Events = () => {
         `
         )
         .eq("status", "open")
+        .gte("date_time", new Date().toISOString())
         .order("date_time", { ascending: true });
 
       if (error) throw error;
@@ -227,11 +228,11 @@ const Events = () => {
           date_time: new Date(eventForm.date_time).toISOString(),
           duration_hours: parseInt(eventForm.duration_hours),
           budget_min: eventForm.budget_min
-            ? parseInt(eventForm.budget_min) * 100
-            : null, // Convert to cents
+            ? parseInt(eventForm.budget_min)
+            : null, // Store in Rupiah directly
           budget_max: eventForm.budget_max
-            ? parseInt(eventForm.budget_max) * 100
-            : null, // Convert to cents
+            ? parseInt(eventForm.budget_max)
+            : null, // Store in Rupiah directly
           required_topics: eventForm.required_topics,
           status: "open",
         })
@@ -347,7 +348,7 @@ const Events = () => {
         organizer_id: selectedEvent.organizer.id, // We need to add this to the Event interface
         status: "pending",
         agreed_rate: applicationForm.proposed_rate
-          ? parseInt(applicationForm.proposed_rate) * 100
+          ? parseInt(applicationForm.proposed_rate)
           : null,
         message: applicationForm.message || null,
       });
@@ -405,9 +406,12 @@ const Events = () => {
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return "Budget not specified";
-    if (min && max) return `$${min / 100} - $${max / 100}`;
-    if (min) return `From $${min / 100}`;
-    if (max) return `Up to $${max / 100}`;
+    if (min && max)
+      return `Rp${min.toLocaleString("id-ID")} - Rp${max.toLocaleString(
+        "id-ID"
+      )}`;
+    if (min) return `From Rp${min.toLocaleString("id-ID")}`;
+    if (max) return `Up to Rp${max.toLocaleString("id-ID")}`;
     return "Budget not specified";
   };
 

@@ -179,7 +179,7 @@ const SpeakerInvitations = () => {
 
   const formatRate = (rate: number | null) => {
     if (!rate) return "Rate not specified";
-    return `$${rate / 100}/hour`;
+    return `Rp${rate.toLocaleString("id-ID")}/hour`;
   };
 
   const getStatusBadge = (status: string, expiresAt?: string | null) => {

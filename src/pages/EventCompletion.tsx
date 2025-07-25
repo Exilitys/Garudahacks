@@ -712,24 +712,25 @@ export default function EventCompletion() {
                 Payment Amount
               </p>
               <p className="text-lg font-bold text-green-600">
-                ${(calculatedAmount / 100).toFixed(2)}
+                Rp{calculatedAmount.toLocaleString("id-ID")}
               </p>
               <div className="text-sm text-gray-600 space-y-1">
                 {isUsingProposedRate ? (
                   <>
                     <p className="text-blue-600 font-medium">
-                      Proposed Rate: ${(booking.agreed_rate! / 100).toFixed(2)}
-                      /hour × {booking.event.duration_hours} hours
+                      Proposed Rate: Rp
+                      {booking.agreed_rate!.toLocaleString("id-ID")}/hour ×{" "}
+                      {booking.event.duration_hours} hours
                     </p>
                     <p className="text-gray-500">
-                      Speaker's Default Rate: $
-                      {(booking.speaker.hourly_rate / 100).toFixed(2)}/hour
+                      Speaker's Default Rate: Rp
+                      {booking.speaker.hourly_rate.toLocaleString("id-ID")}/hour
                     </p>
                   </>
                 ) : (
                   <p>
-                    ${(booking.speaker.hourly_rate / 100).toFixed(2)}/hour ×{" "}
-                    {booking.event.duration_hours} hours
+                    Rp{booking.speaker.hourly_rate.toLocaleString("id-ID")}/hour
+                    × {booking.event.duration_hours} hours
                   </p>
                 )}
               </div>
