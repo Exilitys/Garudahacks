@@ -80,7 +80,7 @@ _Indonesian-focused payment methods with comprehensive options_
 ![Chat System](./screenshots/chat-interface.png)
 _Professional communication platform for speakers and organizers_
 
-[👉 Live Demo](https://temu-bicara-demo.vercel.app) _(Coming Soon)_
+[👉 Live Demo](https://garudahacks-orcin.vercel.app/)
 
 ## Tech Stack
 

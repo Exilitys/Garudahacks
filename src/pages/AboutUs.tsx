@@ -20,39 +20,47 @@ const AboutUs = () => {
   const teamMembers = [
     {
       name: "Jonathan Carlo",
-      university: "University of Bina Nusantara",
+      university: "Bina Nusantara University",
       major: "Computer Science",
-      role: "Lead Developer & Co-Founder",
+      role: "Lead Developer & Founder",
       description:
         "Passionate about building scalable web applications and connecting communities through technology.",
-      avatar: "/placeholder.svg",
-      instagram: "@jonathan.carlo",
+      avatar: "/carlo.png",
+      instagram: "@jonathancarlo20",
       linkedin: "jonathan-carlo",
-      email: "jonathan.carlo@example.com",
+      instagramLink: "https://www.instagram.com/jonathancarlo20/",
+      linkedinLink: "https://www.linkedin.com/in/jonathan-carlo-670b73233/",
+      email: "jonathan.carlo20@gmail.com",
     },
     {
       name: "Christopher Bryan",
-      university: "University of Bina Nusantara",
+      university: "Bina Nusantara University",
       major: "Computer Science",
       role: "Full-Stack Developer & Co-Founder",
       description:
         "Focused on creating seamless user experiences and robust backend systems for modern applications.",
-      avatar: "/placeholder.svg",
-      instagram: "@christopher.bryan",
-      linkedin: "christopher-bryan",
-      email: "christopher.bryan@example.com",
+      avatar: "/bryan.jpg",
+      instagram: "@christopher_bryansh",
+      linkedin: "christo...",
+      instagramLink:
+        "https://www.instagram.com/christopher_bryansh?utm_source=qr&igsh=MWluOXY4OTQzMDdpNw==",
+      linkedinLink: "https://www.linkedin.com/feed/?trk=onboarding-landing",
+      email: "christopher.bryansh@gmail.com",
     },
     {
       name: "Julian Sudiyanto",
-      university: "University of Bina Nusantara",
+      university: "Telkom University",
       major: "Data Science",
-      role: "Data Scientist & Co-Founder",
+      role: "Full Stack Developer & Co-Founder",
       description:
         "Specializes in data analytics and machine learning to drive intelligent platform recommendations.",
-      avatar: "/placeholder.svg",
-      instagram: "@julian.sudiyanto",
+      avatar: "/julian.png",
+      instagram: "@Itdjoel",
       linkedin: "julian-sudiyanto",
-      email: "julian.sudiyanto@example.com",
+      instagramLink:
+        "https://www.instagram.com/itdjoel?igsh=NjExbHR5ZGVreGd5&utm_source=qr",
+      linkedinLink: "https://www.linkedin.com/in/julian-sudianto-536a1430b/",
+      email: "juliansudianto0504@gmail.com",
     },
   ];
 
@@ -168,11 +176,25 @@ const AboutUs = () => {
                       </p>
 
                       <div className="flex space-x-2 pt-3">
-                        <Button variant="outline" size="sm" className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() =>
+                            window.open(member.instagramLink, "_blank")
+                          }
+                        >
                           <Instagram className="mr-1 h-3 w-3" />
                           <span className="text-xs">{member.instagram}</span>
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() =>
+                            window.open(member.linkedinLink, "_blank")
+                          }
+                        >
                           <Linkedin className="mr-1 h-3 w-3" />
                           <span className="text-xs">{member.linkedin}</span>
                         </Button>

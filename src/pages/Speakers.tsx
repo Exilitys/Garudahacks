@@ -20,14 +20,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  MapPin,
-  Star,
-  DollarSign,
-  Search,
-  Verified,
-  Award,
-} from "lucide-react";
+import { MapPin, Star, Banknote, Search, Verified, Award } from "lucide-react";
 import { getAvatarUrl } from "@/lib/avatar-utils";
 
 interface Speaker {
@@ -368,7 +361,7 @@ const Speakers = () => {
                             {speaker.total_talks} talks
                           </div>
                           <div className="flex items-center">
-                            <DollarSign className="mr-1 h-3 w-3" />
+                            <Banknote className="mr-1 h-3 w-3" />
                             {formatRate(speaker.hourly_rate)}
                           </div>
                         </div>
