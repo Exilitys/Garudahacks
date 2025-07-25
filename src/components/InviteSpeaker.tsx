@@ -412,7 +412,7 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="proposed-rate">
-                    Proposed Rate (USD/hour)
+                    Proposed Rate (IDR/hour)
                   </Label>
                   <Input
                     id="proposed-rate"
@@ -425,7 +425,7 @@ const InviteSpeaker: React.FC<InviteSpeakerProps> = ({
                         proposed_rate: e.target.value,
                       })
                     }
-                    placeholder="e.g., 500"
+                    placeholder="e.g., 500000"
                   />
                 </div>
 

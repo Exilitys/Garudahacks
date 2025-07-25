@@ -39,6 +39,10 @@ import {
   DollarSign,
   CheckCircle,
   Loader2,
+  Smartphone,
+  QrCode,
+  Building,
+  Wallet,
 } from "lucide-react";
 
 interface BookingDetails {
@@ -79,6 +83,9 @@ const PaymentPage = () => {
     expiry: "",
     cvv: "",
     cardholder_name: "",
+    bank_account: "",
+    phone_number: "",
+    ewallet_type: "",
   });
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
@@ -457,7 +464,8 @@ const PaymentPage = () => {
               <CardHeader>
                 <CardTitle>Payment Method</CardTitle>
                 <CardDescription>
-                  Complete the payment to confirm the speaker
+                  Complete the payment to confirm the speaker. Choose from
+                  various Indonesian payment options.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -473,14 +481,93 @@ const PaymentPage = () => {
                       <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="credit_card">Credit Card</SelectItem>
-                      <SelectItem value="bank_transfer">
-                        Bank Transfer
+                      <SelectItem value="credit_card">
+                        <div className="flex items-center">
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Credit/Debit Card
+                        </div>
                       </SelectItem>
-                      <SelectItem value="paypal">PayPal</SelectItem>
+                      <SelectItem value="bank_transfer">
+                        <div className="flex items-center">
+                          <Building className="mr-2 h-4 w-4" />
+                          Bank Transfer
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="qris">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center">
+                            <QrCode className="mr-2 h-4 w-4" />
+                            QRIS (Quick Response Code)
+                          </div>
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            Popular
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="gopay">
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center">
+                            <Wallet className="mr-2 h-4 w-4" />
+                            GoPay
+                          </div>
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            Popular
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ovo">
+                        <div className="flex items-center">
+                          <Wallet className="mr-2 h-4 w-4" />
+                          OVO
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="dana">
+                        <div className="flex items-center">
+                          <Wallet className="mr-2 h-4 w-4" />
+                          DANA
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="shopeepay">
+                        <div className="flex items-center">
+                          <Wallet className="mr-2 h-4 w-4" />
+                          ShopeePay
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="linkaja">
+                        <div className="flex items-center">
+                          <Smartphone className="mr-2 h-4 w-4" />
+                          LinkAja
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {paymentForm.payment_method && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div className="text-sm">
+                        <span className="font-medium text-blue-900">
+                          Processing Time:{" "}
+                        </span>
+                        <span className="text-blue-700">
+                          {paymentForm.payment_method === "credit_card" &&
+                            "Instant"}
+                          {paymentForm.payment_method === "bank_transfer" &&
+                            "1-3 business days"}
+                          {paymentForm.payment_method === "qris" && "Instant"}
+                          {(paymentForm.payment_method === "gopay" ||
+                            paymentForm.payment_method === "ovo" ||
+                            paymentForm.payment_method === "dana" ||
+                            paymentForm.payment_method === "shopeepay" ||
+                            paymentForm.payment_method === "linkaja") &&
+                            "Instant"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {paymentForm.payment_method === "credit_card" && (
                   <>
@@ -550,6 +637,124 @@ const PaymentPage = () => {
                   </>
                 )}
 
+                {paymentForm.payment_method === "bank_transfer" && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                    <div className="text-center">
+                      <Building className="h-8 w-8 mx-auto mb-2 text-primary" />
+                      <h3 className="font-semibold">Bank Transfer</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Transfer to one of our supported banks
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded bg-background">
+                        <div className="font-medium">Bank BCA</div>
+                        <div className="text-sm text-muted-foreground">
+                          1234567890
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          a.n. PT TemuBicara Indonesia
+                        </div>
+                      </div>
+                      <div className="p-3 border rounded bg-background">
+                        <div className="font-medium">Bank Mandiri</div>
+                        <div className="text-sm text-muted-foreground">
+                          0987654321
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          a.n. PT TemuBicara Indonesia
+                        </div>
+                      </div>
+                      <div className="p-3 border rounded bg-background">
+                        <div className="font-medium">Bank BNI</div>
+                        <div className="text-sm text-muted-foreground">
+                          1122334455
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          a.n. PT TemuBicara Indonesia
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      * Transfer the exact amount and upload proof of payment
+                      after clicking pay
+                    </div>
+                  </div>
+                )}
+
+                {paymentForm.payment_method === "qris" && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                    <div className="text-center">
+                      <QrCode className="h-8 w-8 mx-auto mb-2 text-primary" />
+                      <h3 className="font-semibold">QRIS Payment</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Scan QR code with any QRIS-enabled app
+                      </p>
+                    </div>
+                    <div className="flex justify-center">
+                      <div className="w-48 h-48 border-2 border-dashed border-muted-foreground/50 rounded-lg flex items-center justify-center">
+                        <div className="text-center">
+                          <QrCode className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            QR Code will appear here
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground text-center">
+                      * Compatible with all banks and e-wallets in Indonesia
+                    </div>
+                  </div>
+                )}
+
+                {(paymentForm.payment_method === "gopay" ||
+                  paymentForm.payment_method === "ovo" ||
+                  paymentForm.payment_method === "dana" ||
+                  paymentForm.payment_method === "shopeepay" ||
+                  paymentForm.payment_method === "linkaja") && (
+                  <div className="space-y-4">
+                    <div className="text-center p-4 border rounded-lg bg-muted/50">
+                      <Wallet className="h-8 w-8 mx-auto mb-2 text-primary" />
+                      <h3 className="font-semibold capitalize">
+                        {paymentForm.payment_method === "gopay" && "GoPay"}
+                        {paymentForm.payment_method === "ovo" && "OVO"}
+                        {paymentForm.payment_method === "dana" && "DANA"}
+                        {paymentForm.payment_method === "shopeepay" &&
+                          "ShopeePay"}
+                        {paymentForm.payment_method === "linkaja" && "LinkAja"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Enter your phone number registered with{" "}
+                        {paymentForm.payment_method === "gopay" && "GoPay"}
+                        {paymentForm.payment_method === "ovo" && "OVO"}
+                        {paymentForm.payment_method === "dana" && "DANA"}
+                        {paymentForm.payment_method === "shopeepay" &&
+                          "ShopeePay"}
+                        {paymentForm.payment_method === "linkaja" && "LinkAja"}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone-number">Phone Number</Label>
+                      <Input
+                        id="phone-number"
+                        value={paymentForm.phone_number}
+                        onChange={(e) =>
+                          setPaymentForm({
+                            ...paymentForm,
+                            phone_number: e.target.value,
+                          })
+                        }
+                        placeholder="+62 812 3456 7890"
+                        type="tel"
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      * You will receive a push notification to complete the
+                      payment
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4">
                   <Dialog
                     open={showConfirmDialog}
@@ -561,7 +766,25 @@ const PaymentPage = () => {
                         size="lg"
                         disabled={!paymentForm.payment_method}
                       >
-                        <CreditCard className="mr-2 h-4 w-4" />
+                        {paymentForm.payment_method === "credit_card" && (
+                          <CreditCard className="mr-2 h-4 w-4" />
+                        )}
+                        {paymentForm.payment_method === "bank_transfer" && (
+                          <Building className="mr-2 h-4 w-4" />
+                        )}
+                        {paymentForm.payment_method === "qris" && (
+                          <QrCode className="mr-2 h-4 w-4" />
+                        )}
+                        {(paymentForm.payment_method === "gopay" ||
+                          paymentForm.payment_method === "ovo" ||
+                          paymentForm.payment_method === "dana" ||
+                          paymentForm.payment_method === "shopeepay" ||
+                          paymentForm.payment_method === "linkaja") && (
+                          <Wallet className="mr-2 h-4 w-4" />
+                        )}
+                        {!paymentForm.payment_method && (
+                          <CreditCard className="mr-2 h-4 w-4" />
+                        )}
                         Pay Rp{paymentAmount.toLocaleString("id-ID")}
                       </Button>
                     </DialogTrigger>
@@ -586,6 +809,26 @@ const PaymentPage = () => {
                             </span>
                             <span className="text-sm">
                               {booking.speaker.profile.full_name}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Payment Method
+                            </span>
+                            <span className="text-sm capitalize">
+                              {paymentForm.payment_method === "credit_card" &&
+                                "Credit/Debit Card"}
+                              {paymentForm.payment_method === "bank_transfer" &&
+                                "Bank Transfer"}
+                              {paymentForm.payment_method === "qris" && "QRIS"}
+                              {paymentForm.payment_method === "gopay" &&
+                                "GoPay"}
+                              {paymentForm.payment_method === "ovo" && "OVO"}
+                              {paymentForm.payment_method === "dana" && "DANA"}
+                              {paymentForm.payment_method === "shopeepay" &&
+                                "ShopeePay"}
+                              {paymentForm.payment_method === "linkaja" &&
+                                "LinkAja"}
                             </span>
                           </div>
                         </div>

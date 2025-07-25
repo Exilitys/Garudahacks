@@ -540,10 +540,8 @@ const SpeakerDetail = () => {
   const handleContactSpeaker = () => {
     if (!canContactSpeaker) return;
 
-    toast({
-      title: "Contact Feature",
-      description: "Direct messaging functionality coming soon!",
-    });
+    // Navigate to chat page
+    navigate("/chat");
   };
 
   if (loading) {

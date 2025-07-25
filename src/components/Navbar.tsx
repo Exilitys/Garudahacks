@@ -17,6 +17,7 @@ import {
   Calendar,
   Mic2,
   Mail,
+  MessageCircle,
 } from "lucide-react";
 import { getAvatarUrl } from "@/lib/avatar-utils";
 
@@ -125,6 +126,12 @@ const Navbar = () => {
                     Speakers
                   </Button>
                 </Link>
+                <Link to="/chat">
+                  <Button variant="ghost" size="sm">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Chat
+                  </Button>
+                </Link>
                 {canViewInvitations && (
                   <Link to="/invitations">
                     <Button variant="ghost" size="sm">
@@ -149,6 +156,12 @@ const Navbar = () => {
                     </Button>
                   </Link>
                 )}
+                <Link to="/about">
+                  <Button variant="ghost" size="sm">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    About Us
+                  </Button>
+                </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

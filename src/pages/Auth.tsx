@@ -154,12 +154,15 @@ const Auth = () => {
 
       toast({
         title: "Account created!",
-        description: `Welcome to SpeakBridge! Please check your email to confirm your account. ${
+        description: `Welcome to TemuBicara! Please check your email to confirm your account. ${
           signupForm.userType === "speaker"
             ? "Your speaker profile will be set up after confirmation."
             : ""
         }`,
       });
+
+      // Redirect to home page after successful account creation
+      navigate("/");
 
       // Reset forms
       setSignupStep(1);
@@ -492,11 +495,11 @@ const Auth = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="hourly-rate">Hourly Rate (USD)</Label>
+                      <Label htmlFor="hourly-rate">Hourly Rate (IDR)</Label>
                       <Input
                         id="hourly-rate"
                         type="number"
-                        placeholder="e.g., 250"
+                        placeholder="e.g., 250000"
                         value={speakerForm.hourlyRate}
                         onChange={(e) =>
                           setSpeakerForm({

@@ -799,7 +799,7 @@ const MyEvents = () => {
                               budget_min: e.target.value,
                             })
                           }
-                          placeholder="e.g., 500"
+                          placeholder="e.g., 500000"
                         />
                       </div>
 
@@ -816,7 +816,7 @@ const MyEvents = () => {
                               budget_max: e.target.value,
                             })
                           }
-                          placeholder="e.g., 2000"
+                          placeholder="e.g., 2000000"
                         />
                       </div>
                     </div>

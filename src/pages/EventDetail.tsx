@@ -545,6 +545,11 @@ const EventDetail = () => {
 
   const isOrganizer = user && event && event.organizer.email === user.email;
 
+  const handleContactOrganizer = () => {
+    // Navigate to chat page
+    navigate("/chat");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -729,7 +734,7 @@ const EventDetail = () => {
 
                               <div className="space-y-2">
                                 <Label htmlFor="proposed-rate">
-                                  Proposed Rate (USD/hour)
+                                  Proposed Rate (IDR/hour)
                                 </Label>
                                 <Input
                                   id="proposed-rate"
@@ -742,7 +747,7 @@ const EventDetail = () => {
                                       proposed_rate: e.target.value,
                                     })
                                   }
-                                  placeholder="e.g., 500"
+                                  placeholder="e.g., 500000"
                                 />
                               </div>
 
@@ -833,6 +838,18 @@ const EventDetail = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Contact Organizer Button - Only show for speakers */}
+                  {user && canApplyToSpeak && !isOrganizer && (
+                    <Button
+                      onClick={handleContactOrganizer}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Contact Organizer
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>

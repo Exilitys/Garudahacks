@@ -203,6 +203,21 @@ const Events = () => {
     e.preventDefault();
     if (!user || !userProfile) return;
 
+    // Validate that the event date is at least 7 days from now
+    const eventDate = new Date(eventForm.date_time);
+    const now = new Date();
+    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    if (eventDate < oneWeekFromNow) {
+      toast({
+        title: "Invalid event date",
+        description:
+          "Events must be scheduled at least 7 days in advance to allow speakers time to prepare.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCreateLoading(true);
 
     try {
@@ -555,6 +570,11 @@ const Events = () => {
                         id="date-time"
                         type="datetime-local"
                         value={eventForm.date_time}
+                        min={(() => {
+                          const oneWeekFromNow = new Date();
+                          oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+                          return oneWeekFromNow.toISOString().slice(0, 16);
+                        })()}
                         onChange={(e) =>
                           setEventForm({
                             ...eventForm,
@@ -563,6 +583,9 @@ const Events = () => {
                         }
                         required
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Events must be scheduled at least 7 days in advance
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -587,7 +610,7 @@ const Events = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="budget-min">Budget Min (USD)</Label>
+                      <Label htmlFor="budget-min">Budget Min (IDR)</Label>
                       <Input
                         id="budget-min"
                         type="number"
@@ -599,12 +622,12 @@ const Events = () => {
                             budget_min: e.target.value,
                           })
                         }
-                        placeholder="e.g., 500"
+                        placeholder="e.g., 500000"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="budget-max">Budget Max (USD)</Label>
+                      <Label htmlFor="budget-max">Budget Max (IDR)</Label>
                       <Input
                         id="budget-max"
                         type="number"
@@ -616,7 +639,7 @@ const Events = () => {
                             budget_max: e.target.value,
                           })
                         }
-                        placeholder="e.g., 2000"
+                        placeholder="e.g., 2000000"
                       />
                     </div>
                   </div>
@@ -988,7 +1011,7 @@ const Events = () => {
 
                             <div className="space-y-2">
                               <Label htmlFor="proposed-rate">
-                                Proposed Rate (USD/hour)
+                                Proposed Rate (IDR/hour)
                               </Label>
                               <Input
                                 id="proposed-rate"
@@ -1001,7 +1024,7 @@ const Events = () => {
                                     proposed_rate: e.target.value,
                                   })
                                 }
-                                placeholder="e.g., 500"
+                                placeholder="e.g., 500000"
                               />
                             </div>
 

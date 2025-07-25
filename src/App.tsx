@@ -18,7 +18,10 @@ import MyEvents from "./pages/MyEvents";
 import PaymentPage from "./pages/PaymentPage";
 import EventCompletion from "./pages/EventCompletion";
 import SpeakerDashboard from "./pages/SpeakerDashboard";
+import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Chat from "./pages/Chat";
+import AboutUs from "./pages/AboutUs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,7 +51,10 @@ const App = () => (
               element={<EventCompletion />}
             />
             <Route path="/speaker-dashboard" element={<SpeakerDashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/about" element={<AboutUs />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
