@@ -381,7 +381,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **🎤 Empowering voices, connecting opportunities 🎤**
 
-Made with ❤️ in Indonesia
+Made with ❤️ in Indonesia for [GARUDAHACKS6.0](https://garudahacks.com/)
 
 [⬆ Back to Top](#temu-bicara--connect-speak-empower)
 
