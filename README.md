@@ -347,17 +347,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Project Maintainers:**
 
-👨‍💻 **Jonathan Carlo** - Lead Developer
+👨‍💻 **Jonathan Carlo** - Lead Developer & Founder
 
-- GitHub: [@Exilitys](https://github.com/Exilitys)
-- LinkedIn: [Jonathan Carlo](https://linkedin.com/in/jonathan-carlo)
-- Email: jonathan.carlo@example.com
+- University: Bina Nusantara University (Computer Science)
+- LinkedIn: [Jonathan Carlo](https://www.linkedin.com/in/jonathan-carlo-670b73233/)
+- Email: jonathancarlo20@gmail.com
 
-🏢 **Temu Bicara Team**
+👨‍💻 **Christopher Bryan** - Full-Stack Developer & Co-Founder
 
-- Project Repository: [Garudahacks](https://github.com/Exilitys/Garudahacks)
-- Issues: [Report a Bug](https://github.com/Exilitys/Garudahacks/issues)
-- Discussions: [Community Forum](https://github.com/Exilitys/Garudahacks/discussions)
+- University: Bina Nusantara University (Computer Science)
+- LinkedIn: [Christopher Bryan](https://linkedin.com/in/christopher-bryan)
+- Email: christopher.bryansh@gmail.com
+
+👨‍💻 **Julian Sudiyanto** - Full Stack Developer & Co-Founder
+
+- University: Telkom University (Data Science)
+- LinkedIn: [Julian Sudiyanto](https://www.linkedin.com/in/julian-sudianto-536a1430b/)
+- Email: juliansudianto0504@gmail.com
 
 ---
 
